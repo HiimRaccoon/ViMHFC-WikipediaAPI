@@ -1,0 +1,345 @@
+# Feature Specification: Fixed Wikipedia Corpus and Vietnamese Fact-Checking Annotation
+
+**Feature name**: `vietnamese-fact-checking-dataset`  
+**Created**: 2026-10-14  
+**Status**: Ready for implementation planning  
+**Source of agreed requirements**: [docs.md](docs.md)  
+**Feature directory**: `docs/`
+
+This specification defines observable behavior and acceptance criteria for constructing a fixed evidence corpus and authoring a Vietnamese multi-hop fact-checking benchmark. It does not claim that the corpus, benchmark, or application already exists. Implementation design belongs in the subsequent plan.
+
+## User Scenarios & Testing
+
+### User Story 1 - Build and Freeze a Reproducible Evidence Corpus (Priority: P1)
+
+As the corpus builder, I want to select 20,000 feasible Vietnamese Wikipedia articles from one fixed snapshot so that annotation and future Agentic RAG evaluation use the same reproducible evidence source.
+
+**Why this priority**: All annotation and later retrieval depend on the corpus. Selecting articles independently of their useful partners would undermine the research goal.
+
+**Independent Test**: Run corpus construction on snapshot-consistent source data, inspect classification and pair-selection records, and verify the final corpus count, extraction boundaries, provenance, and graph. Controlled fixtures can validate behavior; delivery of the research corpus requires real source data.
+
+**Acceptance Scenarios**:
+
+1. **Given** a run with a fixed UTC snapshot, **When** source revisions are selected, **Then** every Wikipedia and Wikidata revision used has a timestamp not later than the run's snapshot, and its provenance and raw data are retained.
+2. **Given** an article with multiple introductory paragraphs, an infobox, and body headings, **When** its lead is extracted, **Then** all introductory prose before the first content heading is retained, non-prose elements and body content are excluded, and stored sentence IDs begin at zero without gaps.
+3. **Given** eligible candidates and supported classifications, **When** candidates are ranked and selected, **Then** both article quality and bridge/comparison pair potential contribute to recorded decisions, and useful partners, diversity, soft quotas, and popularity bias are considered.
+4. **Given** historical Wikidata metadata is unavailable, **When** classification is attempted, **Then** the candidate remains unclassified/pending rather than receiving an unsupported classification or live-data substitution.
+5. **Given** fewer than 20,000 eligible unique articles or invalid metadata/graph data, **When** freeze is requested, **Then** freeze fails with an actionable report without lowering quality or altering quotas silently.
+6. **Given** exactly 20,000 eligible articles and passing integrity checks, **When** freeze succeeds, **Then** the full corpus and graph receive one corpus version and cannot be changed by annotation or later pipeline runs.
+7. **Given** identical stored inputs and rule versions, **When** ranking and selection are replayed, **Then** scores, selected article identities, and decision ordering are reproducible.
+8. **Given** the initial 80,000 Vietnamese Wikipedia candidates yield fewer than 20,000 eligible articles, **When** collection continues, **Then** additional candidates may be collected under the same run snapshot without lowering eligibility standards.
+9. **Given** a historical revision contains lead-prose links, body-only links, and redirect targets, **When** the graph is constructed, **Then** only retained Full Lead prose links form normalized directed edges; the frozen internal graph contains only edges whose source and target belong to the selected corpus, while any recorded full-article links remain separate.
+
+### User Story 2 - Resume Corpus Construction Without Losing Work (Priority: P1)
+
+As the corpus builder, I want to stop and resume a large collection run without downloading valid data again, duplicating records, or mixing snapshots and rules.
+
+**Why this priority**: The expected candidate pool is large and historical-source retrieval may be interrupted or expensive.
+
+**Independent Test**: Interrupt processing, resume under the same configuration, retry failures, and compare records and source requests with an uninterrupted run.
+
+**Acceptance Scenarios**:
+
+1. **Given** a compatible checkpoint after completed batches, **When** the run resumes, **Then** completed valid work is reused, unfinished work continues, and no duplicate candidates or articles are created.
+2. **Given** transient source failures, **When** retries occur, **Then** affected work remains distinguishable from completed work, retains the original snapshot, and exposes its processing status.
+3. **Given** changed extraction, classification, filtering, ranking, or snapshot configuration, **When** resume is attempted against an incompatible checkpoint, **Then** the run stops with a clear explanation and instructions to create a new run.
+4. **Given** a new run using compatible stored raw data, **When** changed rules are applied, **Then** only affected stages and downstream dependencies need reprocessing; the original run remains intact.
+5. **Given** active processing, **When** progress is inspected, **Then** processed counts, speed, progress, and an ETA estimate are visible; an unavailable estimate is not presented as a reliable completion time.
+
+### User Story 3 - Start and Share the Local Application (Priority: P1)
+
+As an annotator, I want to start the application with one Windows command and use a supplied frozen corpus without rebuilding it.
+
+**Why this priority**: Both annotators must be able to operate independently with identical evidence sources.
+
+**Independent Test**: Start with valid and invalid corpus packages, restart with existing samples, and transfer the same frozen corpus to a second local installation.
+
+**Acceptance Scenarios**:
+
+1. **Given** a valid frozen corpus and installed prerequisites, **When** the user runs `start.ps1`, **Then** the local application starts and displays its access URL without running corpus construction.
+2. **Given** missing prerequisites, an unfrozen corpus, an incorrect article count, or failed corpus validation, **When** startup is attempted, **Then** annotation does not start and the user receives clear corrective guidance.
+3. **Given** an existing corpus and submitted samples, **When** the application restarts, **Then** stored corpus data, historical sessions, and submitted samples are preserved.
+4. **Given** the source code and the same frozen corpus are copied to the second machine, **When** its user starts annotation, **Then** both machines expose identical corpus versions and sentence content while keeping sessions and samples independent.
+5. **Given** the corpus is frozen and the local application is available, **When** internet access is disconnected, **Then** Random, discovery, annotation, Submit, and benchmark export continue using local data.
+
+### User Story 4 - Discover Articles and Manage a Workspace (Priority: P1)
+
+As an annotator, I want to explore related articles in a bounded workspace so that I can compose a claim from genuine frozen-source information.
+
+**Why this priority**: Flexible evidence discovery is central to efficient human annotation.
+
+**Independent Test**: Random an article, use each discovery mode from different workspace articles, add/remove candidates, and verify the corpus remains unchanged.
+
+**Acceptance Scenarios**:
+
+1. **Given** a newly opened page, **When** the annotator chooses Random, **Then** Article A is selected from the frozen corpus and shows its title and up to six initial sentences with stable IDs and checkboxes.
+2. **Given** an article with more than six sentences, **When** Show More is used and later Show Less is used, **Then** remaining sentences can be inspected and selected without renumbering or losing existing selections.
+3. **Given** any open article, **When** Hyperlink discovery is used, **Then** candidates correspond to real outgoing Full Lead Entity Links in the frozen Corpus-internal Graph and belong to the frozen corpus; body-only hyperlinks do not produce candidates.
+4. **Given** a selected shared entity, **When** Shared Entity discovery is used, **Then** candidate Full Lead Sections link to the same identified entity; that entity may be outside the corpus, but candidates cannot be.
+5. **Given** a supported subtype, **When** Same Entity Type discovery is used, **Then** candidates share that subtype, with no silent fallback to a broader primary group.
+6. **Given** available candidates, **When** a candidate is selected manually or randomly, **Then** the article is added only if it is not already open and the workspace has fewer than five articles.
+7. **Given** a removable article with selected evidence, **When** removal is requested, **Then** confirmation is required; cancellation preserves the draft, and acceptance removes only the article and its draft evidence.
+8. **Given** unsaved workspace/annotation work, **When** Re-random is requested, **Then** confirmation precedes replacement of the workspace with a newly selected Article A; submitted samples remain intact.
+9. **Given** no candidates or an operational failure, **When** discovery completes, **Then** no-results and error states are distinguishable and neither state fabricates articles or relationships.
+
+### User Story 5 - Submit Human-authored Claims and Evidence (Priority: P1)
+
+As an annotator, I want to enter a claim, label, and hop count and select evidence sentences, while retaining full authority over the annotation.
+
+**Why this priority**: Human-created annotations are the benchmark's primary output.
+
+**Independent Test**: Submit examples for all labels, including single-document evidence, and inspect persistence, validation, derived coverage, retry behavior, and form reset.
+
+**Acceptance Scenarios**:
+
+1. **Given** a nonempty claim, human-selected SUPPORTED/REFUTED, hop count 2 or 3, and at least two distinct checked sentences, **When** Submit succeeds, **Then** one independent sample is stored with those exact label/hop values and sentences in `gold_evidence`, while `partial_evidence` is empty.
+2. **Given** the required two or more sentences belong to one article, **When** the sample is structurally valid, **Then** it is not rejected for lacking a second source article, and its coverage is `single_document`.
+3. **Given** human-selected NEI, hop count 2, and exactly one checked sentence, **When** Submit succeeds, **Then** that sentence is stored in `partial_evidence` and `gold_evidence` is empty.
+4. **Given** invalid fields, unsupported hop values, an invalid evidence reference, or a label-specific evidence-count violation, **When** Submit is attempted, **Then** errors are reported and the draft is preserved without changing the human's label or hop count.
+5. **Given** a stored sample, **When** its form is reset after successful confirmation, **Then** claim, label, hop count, and checked sentences clear while articles, metadata, display state, and discovery context remain.
+6. **Given** a storage failure, **When** Submit cannot persist the sample, **Then** the full draft remains available and the sample counter does not increase.
+7. **Given** a persisted submission whose acknowledgement was lost, **When** the same submission is retried or double-clicked, **Then** it produces only one sample and returns the existing result.
+8. **Given** evidence from two or more distinct article page IDs, **When** the sample is stored, **Then** coverage is `cross_document`; coverage derivation does not assign or alter label/hop count or assert reasoning validity.
+
+### User Story 6 - Start New Sessions Without Restoring Drafts (Priority: P1)
+
+As an annotator, I want each page opening to start a fresh workspace while retaining all submitted data.
+
+**Independent Test**: Submit a sample, create an unsubmitted draft, refresh or close/reopen the page, and inspect current and historical sessions.
+
+**Acceptance Scenarios**:
+
+1. **Given** an active session with submitted samples and a draft, **When** the page refreshes or reopens, **Then** a new UUID session is created, the workspace and draft are empty, and previous submitted samples retain their original session IDs.
+2. **Given** separate local machines, **When** each opens the application, **Then** sessions are independently identified without requiring synchronization or an annotator identifier.
+3. **Given** samples in older sessions, **When** the new page shows its counter, **Then** only successful submissions in the current session are counted.
+
+### User Story 7 - Export and Reuse Dataset Artifacts (Priority: P1)
+
+As an annotator or researcher, I want consistent session exports and separately reusable corpus/graph artifacts without losing data or interrupting annotation.
+
+**Independent Test**: Export a current session, export an older session through the command interface, parse the files, and compare their contents with stored samples and corpus provenance.
+
+**Acceptance Scenarios**:
+
+1. **Given** a current session with successful submissions, **When** Export Dataset is used, **Then** one UTF-8 JSONL record is written per sample from that session, with both evidence arrays and derived coverage metadata preserved.
+2. **Given** open unselected articles and an unsubmitted draft, **When** export runs, **Then** neither drafts nor unselected articles appear in the output.
+3. **Given** an empty current session, **When** the user views export, **Then** the button is disabled with an explanatory message rather than downloading an empty dataset.
+4. **Given** a populated workspace, **When** export completes, **Then** data and workspace state remain unchanged and further annotation is possible.
+5. **Given** a historical session ID, **When** the user lists sessions and exports that ID through a PowerShell-accessible command, **Then** the saved samples from that session remain retrievable after page refresh or application restart.
+6. **Given** a frozen corpus, **When** corpus and graph artifacts are exported independently, **Then** all 20,000 articles, including never-annotated articles, remain represented and share the corpus version used by benchmark samples.
+
+### Edge Cases
+
+- A candidate has multiple possible primary groups: apply recorded classification rules; unresolved or unsupported classification cannot silently pass as a known type.
+- A required historical revision is unavailable: report pending/failed work and do not replace it with current content.
+- A lead has fewer than six sentences: show all available sentences without artificial padding.
+- A long lead is collapsed after selecting later sentences: selected evidence remains in the draft.
+- Distinct articles each have `sent_id = 0`: sentence identity includes the source page/revision, so they are not treated as duplicates.
+- A redirect or alias resolves to an already-open article: do not create a second workspace entry for that article.
+- A shared entity is outside the corpus: use its stored identity for matching; do not fetch or add its article during annotation.
+- A hyperlink appears only in the body or an excluded lead component: it may be retained as source/audit data but cannot enter the lead-based graph or establish summary factual evidence.
+- The initial 80,000 candidates are insufficient: expand collection under the same snapshot without relaxing standards or freezing an undersized corpus.
+- An article lacks a supported subtype or has no matching candidates: explain the absence; do not infer a subtype or broaden discovery silently.
+- Five articles are open: deny a sixth addition without losing the existing workspace.
+- Removal or Re-random confirmation is cancelled: preserve all current state.
+- Label changes before Submit: evidence remains a draft and is classified into the appropriate array only using the final human-selected label; invalid counts require correction rather than silent trimming.
+- Evidence comes from a different corpus version or no longer matches its stored source sentence: reject the invalid submission rather than repairing source content silently.
+- A page closes before Submit confirmation: the draft is not restored, but any sample successfully persisted remains available through historical-session export.
+- A repeated submission ID carries different content: report a conflict rather than overwrite the stored sample or silently accept changed data as a retry.
+- An export fails: saved samples and workspace remain intact, and a retry is possible.
+- A valid corpus misses individual soft quotas: report deviations; do not treat exact per-group quotas as equivalent to the hard total of 20,000.
+
+## Requirements
+
+### Scope and Research Boundaries
+
+- **FR-001**: The system MUST support construction of one versioned, immutable evidence corpus and a local human annotation application using that corpus.
+- **FR-002**: The corpus MUST contain exactly 20,000 unique eligible Vietnamese Wikipedia articles. The benchmark collection targets 2,000 human-authored claims: 900 SUPPORTED, 900 REFUTED, and 200 NEI, with approximately 95% two-hop and 5% three-hop claims.
+- **FR-003**: Benchmark counts and the approximate hop distribution MUST be treated as research collection targets, not automatic label assignment, hop assignment, or submission quotas enforced across independent machines.
+- **FR-004**: The full frozen corpus MUST define claim verification scope. Checked sentences and the currently open workspace MUST NOT redefine that scope.
+- **FR-005**: The corpus-building and annotation stages MUST operate without an LLM or Cross-Encoder dependency. Future Agentic RAG implementation is outside this feature's scope.
+
+### Snapshot, Extraction, and Classification
+
+- **FR-006**: Each pipeline run MUST retain a unique run identity, a fixed UTC snapshot timestamp, configuration version, and versions of all rules used.
+- **FR-007**: Source selection MUST use the latest available Wikipedia/Wikidata revisions not later than the run's snapshot. This includes Wikidata entities referenced during classification hierarchy traversal.
+- **FR-008**: The system MUST preserve raw source data and provenance, including Wikipedia page/revision identities and timestamps, Wikidata identities/revisions/timestamps where used, and the basis for classification.
+- **FR-009**: Missing historical metadata MUST result in explicit unresolved processing/classification state, not unsupported type inference or substitution with live data.
+- **FR-010**: Full Lead Section extraction MUST retain all introductory prose before the first content heading, excluding infoboxes, tables, navigation, footnotes, and other non-prose elements. It MUST exclude body sections and impose no hard sentence-count limit.
+- **FR-011**: The system MUST normalize Unicode, create a stable sentence sequence with zero-based contiguous IDs, and retain extraction version, sentence count, paragraph count, and lead length statistics.
+- **FR-012**: Each selected article MUST have one supported primary entity type and recorded supported subtype information where available. Classification of overlapping groups MUST follow consistent, versioned rules.
+- **FR-013**: The pipeline MUST exclude redirect-only, disambiguation, list-only, and unhelpful leads and assess useful factual content and partner potential rather than selecting by entity type alone.
+- **FR-014**: The pipeline MUST use the soft entity-group targets below and report deviations or insufficient eligible supply. It MUST NOT lower quality or change allocations silently.
+
+| Primary entity type | Soft target |
+| --- | ---: |
+| Person | 5,000 |
+| Organization | 3,000 |
+| Location | 3,000 |
+| Event | 2,500 |
+| Creative Work | 2,500 |
+| Award / Competition | 1,500 |
+| Landmark / Facility | 1,500 |
+| Science / Technology | 1,000 |
+| **Total** | **20,000** |
+
+### Multi-hop Potential and Corpus Selection
+
+- **FR-015**: The pipeline MUST assess bridge and comparison candidate pairs after article-quality filtering, in addition to independent article scores.
+- **FR-016**: Bridge potential MUST favor entity relationships expressed in summary A and complementary factual information in summary B. Comparison potential MUST favor shared subtypes and compatible attributes expressed in both summaries.
+- **FR-017**: Reranking MUST reward complementary information and penalize redundancy and shortcut-risk signals. Scores MUST be presented as multi-hop potential estimates, not semantic proof of valid claims.
+- **FR-018**: Final selection MUST use deterministic, rule-based, graph-aware greedy selection that considers partner retention, internal connectivity, diversity, soft quotas, and bias toward popular/high-link-count entities.
+- **FR-019**: Ranking scores, contributing signals, candidate pairs, rule versions, selection logs, and reproducible decision ordering MUST be retained. Same-input replay MUST reproduce the selected article identities and ranking/selection results.
+- **FR-020**: Hyperlink collection SHOULD prefer the MediaWiki API and MUST use the selected historical Wikipedia revision. Full Article Hyperlinks, Full Lead Entity Links, the Corpus-internal Graph, and comparison associations MUST remain distinguishable. Only genuine links in retained Full Lead prose MAY form operational graph edges for connectivity, selection, Hyperlink discovery, and later graph expansion; body-only links and excluded components MUST NOT contribute such edges. Page identities and redirects MUST be normalized consistently with the snapshot, with resolution provenance retained, and edges MUST preserve direction A -> B. Once the 20,000-article selection is fixed, its internal lead-based edges MUST be filtered to in-corpus endpoints and stored in `corpus.sqlite` as part of the immutable frozen artifact. Full-article links, if retained, are source/audit data; comparison associations MUST NOT be recorded as Wikipedia hyperlinks. A hyperlink by itself MUST NOT be treated as factual evidence; Gold Evidence MUST come only from stored Full Lead sentences.
+- **FR-021**: Corpus evaluation MUST report internal connectivity, bridge/comparison candidate counts, subtype coverage, and group counts. Valid 2-hop Yield MUST be supported as a human-reviewed evaluation outcome, without introducing an annotation-app review workflow.
+
+### Processing Lifecycle and Freeze
+
+- **FR-022**: Collection MUST target an initial pool of **80,000 Vietnamese Wikipedia candidates**. This is an initial target, not a hard cap or guaranteed feasible-article yield. If fewer than 20,000 articles meet the agreed standards, the pipeline MUST support additional collection under the same snapshot without lowering quality to satisfy the final count.
+- **FR-023**: Processing MUST use bounded parallel work, batching, and reusable stored results. Progress MUST expose processed counts, speed, and ETA estimates.
+- **FR-024**: Checkpoints MUST retain collected candidates, source metadata/content, leads, links, classifications, filtering/ranking results, and pending/completed/failed states.
+- **FR-025**: Compatible resume and retries MUST preserve snapshot/rule consistency, reuse valid work, and avoid duplicate records. Transient source failures MUST be retryable and distinguishable from completed results.
+- **FR-026**: Incompatible resume MUST stop with clear guidance. New configuration/snapshot processing MUST use a new run identity and preserve prior runs, with compatible raw-source reuse and reprocessing of affected stages and dependencies only.
+- **FR-027**: Freeze MUST succeed only with exactly 20,000 unique eligible articles and passing checks for metadata, revision consistency, extraction/sentence integrity, quality rules, and graph integrity.
+- **FR-028**: Successful freeze MUST assign a corpus version and preserve the entire selected corpus and graph. Subsequent pipeline or annotation actions MUST NOT mutate or overwrite that corpus.
+
+### Local Workspace and Discovery
+
+- **FR-029**: Annotation MUST use only the frozen local corpus and stored discovery information. Random, Re-random, discovery, and Add Article MUST NOT access live Wikipedia/Wikidata or add outside-corpus articles.
+- **FR-030**: A new workspace MUST start empty; Random MUST select Article A from the corpus. The workspace MUST contain no more than five distinct articles.
+- **FR-031**: Articles MUST show titles and numbered sentence checkboxes, initially displaying up to six sentences. Show More/Show Less MUST preserve sentence identities and checkbox selections.
+- **FR-032**: Hyperlink discovery MUST return only corpus articles reached by genuine directed outgoing Full Lead Entity Links from the chosen workspace article in the stored Corpus-internal Graph. Links appearing only in the body or excluded components MUST NOT produce candidates.
+- **FR-033**: Shared Entity discovery MUST match identified entities linked from Full Lead Sections. A shared entity may be outside the corpus; candidate source articles may not. Matching MUST NOT rely solely on similar names or body-only mentions.
+- **FR-034**: Same Entity Type discovery MUST match the selected supported subtype, allow subtype selection when several apply, and avoid silent fallback to broader primary groups.
+- **FR-035**: Discovery MUST work from any open article, provide candidate selection and Random Candidate, prevent duplicate additions, and distinguish empty results from failures without fabricating relationships.
+- **FR-036**: Article A MUST have no Remove action. Other articles without checked evidence MUST be removable immediately; articles with checked evidence MUST require confirmation that removes only workspace state and associated draft evidence.
+- **FR-037**: Re-random MUST confirm discarding unsubmitted work before resetting the workspace/draft around a new Article A. Neither Re-random nor Remove MUST affect submitted samples or source corpus data.
+
+### Human Authority and Structural Validation
+
+- **FR-038**: The annotation form MUST expose only claim, label, and hop count as human-entered fields. Source/evidence metadata MUST be populated from the corpus rather than manually typed.
+- **FR-039**: The system MUST preserve human authority over label and hop count and MUST NOT infer, assign, correct, or overwrite either field.
+- **FR-040**: Structural submission validation MUST require a nonempty claim, one allowed human-selected label, one allowed human-selected hop count, valid distinct selected sentence identities, and label-specific evidence counts. Errors MUST preserve the draft and explain the required correction.
+- **FR-041**: SUPPORTED/REFUTED MUST accept hop count 2 or 3 with at least two distinct evidence sentences, including when all evidence comes from one article. Three-hop submissions MUST NOT automatically require three sentences or articles.
+- **FR-042**: NEI MUST require human-selected hop count 2 and exactly one selected sentence. Its prescribed research structure is a verified first factual relationship and an insufficiently evidenced necessary second relationship.
+- **FR-043**: Selected SUPPORTED/REFUTED sentences MUST populate `gold_evidence` with empty `partial_evidence`. Selected NEI evidence MUST populate `partial_evidence` with empty `gold_evidence`.
+- **FR-044**: Evidence selections MUST use checkboxes with a light blue selected state and support check/uncheck actions. Text highlighting, offsets, unselected articles, and distractor contexts MUST NOT be required or exported.
+- **FR-045**: Human reasoning assessment, NEI corpus search, and cross-review MUST remain external. The application MUST NOT introduce review workflows, review logs/status fields, or automatic semantic/multi-hop adjudication.
+
+### Hop Count and Multi-hop Necessity Guideline
+
+The user-facing annotation guidance MUST apply these definitions. They govern human judgement, not additional automatic semantic submission validation.
+
+| Rule | Required interpretation |
+| --- | --- |
+| One hop | One verification step for an independent factual relationship or attribute genuinely necessary to determine the verdict |
+| 2-hop Bridge | Verify X -> Y and Y -> Z |
+| 2-hop Comparison | Verify A's attribute and B's attribute; the final comparison adds no hop |
+| 3-hop | Verify three independent necessary factual relationships/attributes |
+| Unrelated counts | Article count, sentence count, and retrieval-call count do not determine hop count |
+| Inflated chains | Redundant relationships and independent propositions added to inflate hops do not count |
+| Necessity | A sentence that alone determines the verdict invalidates the intended multi-hop sample; humans also check for an article directly resolving the claim without a reasoning chain |
+| Single-document reasoning | Combining necessary factual steps within one article is allowed |
+| NEI | Two-hop required structure, with one sentence verifying Hop 1 and insufficient information for Hop 2 |
+
+- **FR-046**: Guidance MUST explain all interpretations above and include valid bridge/comparison/three-hop/single-document examples and invalid shortcut/inflated-count examples. The hypothetical illustrations in [docs.md](docs.md#hop-count-and-multi-hop-necessity-guideline) are the agreed basis; real benchmark evidence must come from the frozen corpus.
+- **FR-047**: Cross-document claims with necessary Gold Evidence from at least two articles MUST be prioritized as a research preference, without rejecting valid single-document multi-hop or imposing an additional document-count validation/quota.
+- **FR-048**: Two sentences from two articles MUST NOT be treated as automatic proof of two-hop reasoning. Human Multi-hop Necessity assessment remains required.
+
+### Derived Coverage, Persistence, and Sessions
+
+- **FR-049**: Each saved sample MUST include automatically derived `metadata.source_article_count` and `metadata.document_coverage`, counting distinct source page IDs in its stored evidence, excluding unselected workspace articles.
+- **FR-050**: One distinct source article MUST yield `single_document`; at least two MUST yield `cross_document`. SUPPORTED/REFUTED use gold evidence sources; NEI uses its single partial evidence source, describing observed evidence only rather than the missing Hop 2.
+- **FR-051**: Coverage derivation MUST NOT modify evidence object fields, add human-input fields, infer reasoning validity, or change human label/hop count.
+- **FR-052**: Successful Submit MUST persist an independent sample with a UUID, current session identity, corpus version, UTC creation timestamp, human annotations, selected evidence, and derived coverage before acknowledging success.
+- **FR-053**: An internal submission identity MUST make double-clicks and same-submission retries idempotent. A new annotation submission MUST receive a new identity; retries MUST NOT overwrite existing samples.
+- **FR-054**: Only after confirmed persistence MUST the form clear claim, label, hop count, and selected evidence. It MUST retain articles, metadata, display state, and discovery context. Failed submissions MUST retain the draft.
+- **FR-055**: Every page opening or refresh MUST create a new UUID session and empty workspace/draft, without restoring previous unsubmitted data. Successfully submitted samples MUST retain their original session identity across refreshes and restarts.
+- **FR-056**: Session IDs MUST be generated independently on each machine without coordination or annotator identifiers. The displayed counter MUST count successful samples in the current session only.
+
+### Export, Transfer, and Operation
+
+- **FR-057**: Export Dataset MUST export all and only successful samples from the current session as UTF-8 JSONL, one complete record per line, preserving both evidence arrays, source metadata, corpus version, UTC timestamp, and derived coverage.
+- **FR-058**: Export MUST leave saved data and workspace unchanged and permit further annotation. An empty current session MUST disable export with an explanation.
+- **FR-059**: The UI MUST have no Export by Date or date filter. Session-based export filenames MUST be used; `VIMFC_SESSION_001.jsonl` is illustrative, not a shared-machine numbering requirement.
+- **FR-060**: PowerShell-accessible commands MUST list saved sessions and export a specified historical session, including after refresh or application restart.
+- **FR-061**: Corpus and graph MUST be independently exportable with the same corpus version and include all 20,000 selected articles, even those never used for annotation.
+- **FR-062**: Transfer of source code and the frozen corpus package MUST enable independent annotation on the second machine without rerunning collection. Frozen source data MUST be read-only during annotation and separate from writable session/sample storage.
+- **FR-063**: Windows startup through `start.ps1` MUST check prerequisites and corpus validity, refuse invalid/unfrozen corpora, display the local URL after success, and never invoke corpus construction automatically.
+- **FR-064**: The UI MUST use Vietnamese instructions, controls, and errors while retaining the literal label values and export field names. Its layout MUST provide the agreed header, article workspace, and annotation panel without extra human metadata entry.
+- **FR-065**: User documentation MUST explain Windows installation, separate corpus build/resume/freeze, corpus transfer, startup, session export/recovery, and the distinction between lost drafts and durable submitted samples.
+- **FR-066**: Before implementation, research MUST be recorded in `research_vimqa.md`, distinguishing ViMQA's original collection approach from this fact-checking adaptation, including its requested data-collection, interface, reasoning-type, and benchmark-setting sections.
+
+### Benchmark Record Contract
+
+The record contract below is an interchange requirement, not a database or endpoint design. Every sample contains the same top-level fields.
+
+| Field | Required meaning |
+| --- | --- |
+| `id` | Sample UUID |
+| `session_id` | UUID of the session in which the sample was submitted |
+| `corpus_version` | Identity of the frozen evidence corpus |
+| `claim` | Human-entered Vietnamese claim |
+| `label` | Human-selected SUPPORTED, REFUTED, or NEI |
+| `hop_count` | Human-selected 2 or 3; NEI requires 2 |
+| `gold_evidence` | Selected complete evidence for SUPPORTED/REFUTED; empty for NEI |
+| `partial_evidence` | Exactly one selected Hop 1 sentence for NEI; empty otherwise |
+| `metadata.document_coverage` | Derived `single_document` or `cross_document` |
+| `metadata.source_article_count` | Count of distinct observed evidence source page IDs |
+| `reasoning_chain` | Null; no automatically generated gold reasoning chain |
+| `created_at` | UTC creation timestamp in ISO-8601 format |
+
+Each evidence object, in either array, MUST retain exactly the agreed fields: `article_title`, `page_id`, `revision_id`, `source_url`, `sent_id`, and `evidence_text`. No review metadata or annotator identifier is included. Internal submission identities do not require an added benchmark field.
+
+### Key Entities
+
+- **Pipeline Run**: Fixed snapshot, configuration/rule versions, processing state, source inputs, and associated checkpoints and selection records.
+- **Source Revision**: Wikipedia or Wikidata identity, revision/timestamp, raw content/metadata, and recorded provenance.
+- **Candidate Article**: An article under collection, classification, filtering, or ranking, with quality signals and explicit processing status.
+- **Frozen Article**: Selected page identity, full lead, stable sentences, entity metadata, source provenance, extraction version, and summary statistics.
+- **Candidate Pair**: Bridge/comparison partners, observed supporting signals, pair scores, and rule versions; not a human-annotated claim or invented graph edge.
+- **Full Article Hyperlinks**: Historical-revision hyperlinks across the article; if retained, source/audit data separate from the lead-based operational graph.
+- **Full Lead Entity Link**: A real hyperlink in retained introductory prose, with snapshot-consistent source/target identity and redirect-resolution provenance; targets may be outside the corpus for Shared Entity matching.
+- **Corpus-internal Graph Edge**: A normalized directed Full Lead Entity Link with both endpoints in the final 20,000-article corpus, stored with the frozen artifact for discovery and future graph expansion.
+- **Frozen Corpus**: Exactly 20,000 immutable selected articles plus versioned graph and metadata, independently reusable on both machines.
+- **Session**: Local UUID created for a page opening/refresh, associated with successfully submitted samples.
+- **Workspace Draft**: Up to five open articles, display/discovery state, human field values, and temporary evidence selections; discarded on page reopening/refresh.
+- **Submitted Sample**: Durable benchmark record preserving the human's values, frozen-source evidence, session/corpus identity, timestamp, and derived document coverage.
+
+## Success Criteria
+
+### Measurable Outcomes
+
+- **SC-001**: A completed corpus contains exactly 20,000 unique eligible articles; all carry the required source, classification, extraction, and sentence metadata, and group totals/deviations are reported.
+- **SC-002**: Every source revision used is at or before the fixed run snapshot; annotation exposes zero live Wikipedia/Wikidata requests after corpus freeze.
+- **SC-003**: All stored lead sentences are traceable to their recorded article revisions; all article sentence sequences are zero-based and contiguous; every internal graph edge is a directed, normalized hyperlink from retained Full Lead prose at the recorded revision with both endpoints in the frozen corpus. Graph integrity checks pass, and zero body-only links enter the operational graph.
+- **SC-004**: Replaying ranking/selection against identical stored inputs and rule versions yields identical selected article identities and scoring/decision results. Compatible interrupted runs produce no duplicate records and reuse completed valid work.
+- **SC-005**: All three discovery modes satisfy their stated relationship rules, return only addable in-corpus articles, and enforce zero duplicate entries and a maximum of five open articles.
+- **SC-006**: Valid structural submissions for all labels are persisted without label/hop modification, including SUPPORTED/REFUTED using one source article; every NEI submission has exactly one partial sentence and hop count 2.
+- **SC-007**: All repeated requests for one submission identity yield one stored sample; confirmed samples survive refresh/restart, while unsubmitted drafts do not reappear.
+- **SC-008**: Exported line counts equal successful sample counts for the selected session. Every line parses as one record with the required contract, matching stored evidence and derived coverage, with zero drafts, unselected contexts, or cross-session records.
+- **SC-009**: Two local installations using the same transferred frozen corpus expose identical corpus versions and article/sentence data while maintaining independent session/sample stores.
+- **SC-010**: The ordinary startup command performs no corpus collection; it permits annotation only for a valid frozen corpus and gives actionable feedback for invalid prerequisites or corpus data.
+- **SC-011**: Corpus quality reporting includes connectivity, bridge/comparison counts, subtype coverage, and externally human-assessed Valid 2-hop Yield. When assessed, report the valid and reviewed counts and their ratio; if no review has occurred, report it as unassessed rather than claim a measured yield.
+- **SC-012**: Research collection can produce records supporting the 2,000-claim target and separate single-document/cross-document analysis. Completion of the human-authored benchmark and its label distribution is a research milestone, not an automatic software acceptance result.
+
+## Assumptions and Dependencies
+
+1. [docs.md](docs.md) and the user's latest confirmed decisions are the authority for scope. This specification formalizes them without introducing new research quotas or semantic validation.
+2. Human annotators own claim truth assessment, factual-step counting, multi-hop necessity, and external NEI review. The software checks structural validity only.
+3. Availability of historical Wikipedia/Wikidata source revisions is an external dependency. Missing data can delay collection; it does not justify live-data substitution or relaxed provenance rules.
+4. The initial 80,000-candidate target is not a hard cap; additional candidates may be needed to obtain 20,000 eligible articles. Entity quotas remain soft and the approximate 5% three-hop distribution remains a research target; none permits relaxing article quality.
+5. Pair scores, filtering thresholds, classification precedence, checkpoint frequency, endpoint choices, batch sizes, caching, concurrency bounds, and performance baselines belong in the plan as versioned, reviewable choices. The plan should investigate `action=parse&oldid=...&prop=links` for historical hyperlink collection while ensuring full-article responses do not become lead-only graph edges without scope filtering. This specification does not finalize that endpoint or invent unsupported numerical guarantees or a minimum Valid 2-hop Yield.
+6. Local speed and startup/query efficiency must be measured on the intended Windows environment during planning/verification. Research collection is network-dependent; annotation after freeze is not.
+7. The agreed React/TypeScript/Vite, Python/FastAPI, SQLite split (`corpus.sqlite` and `annotations.sqlite`), and PowerShell delivery choices remain constraints from [docs.md](docs.md); their implementation design belongs in the plan.
+8. The repository currently uses `docs/specs.md` as the requested specification location rather than an initialized `.specify` feature tree.
+
+## Out of Scope
+
+- Implementing or evaluating the future Agentic RAG system in this feature.
+- Live or outside-corpus article discovery during annotation; body-section or infobox evidence.
+- Four-hop/five-hop claims, automatic claim generation, label/hop inference, and fabricated reasoning chains.
+- App-managed human review, NEI verification search workflow/logs, review-status exports, or annotator IDs.
+- Mandatory cross-document validation, automatic single-hop shortcut adjudication, or an enforced cross-document quota.
+- Draft restoration, date-based dataset export, Docker deployment, or rebuilding the corpus at annotation startup.
+- New train/dev/test split policies, centralized multi-machine annotation, and automatic aggregation of the two annotators' exports; these were not agreed requirements.

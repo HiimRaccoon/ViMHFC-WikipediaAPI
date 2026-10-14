@@ -1,0 +1,400 @@
+# Vietnamese Multi-hop Fact-Checking Implementation Plan
+
+> **For implementers:** Read [specs.md](specs.md) and [docs.md](docs.md) first. Use the `executing-plans` workflow for inline implementation; do not begin implementation as part of writing this plan. Milestone checkboxes below are planning handoff items; detailed dependency-ordered work will be generated separately in `tasks.md`.
+
+**Goal:** Build a reproducible 20,000-article fixed Vietnamese Wikipedia lead corpus and a Windows-local application for human-authored fact-checking samples.
+
+**Architecture:** Separate an internet-enabled corpus builder from an offline annotation application. The builder keeps revision-addressed raw data and resumable stage results, then publishes a validated, immutable corpus package. The annotation backend reads that package and writes independent samples/session records; the frontend keeps only transient workspace state.
+
+**Tech stack:** Python 3.12 baseline, FastAPI, Pydantic, HTTPX, Python `sqlite3`, mwparserfromhell, React, TypeScript, Vite, PowerShell, pytest, and Playwright. Use a currently supported Node.js LTS compatible with the selected Vite release; lock exact package versions during setup after a compatibility smoke test rather than inventing version guarantees here.
+
+**Spec:** [specs.md](specs.md)  
+**Status:** Design complete; implementation and real-data validation have not been performed.  
+**Feature directory:** `docs/`  
+**Branch:** None; the current workspace is not an initialized git repository.
+
+## Global Constraints
+
+- Initial collection target: **80,000 Vietnamese Wikipedia candidates**; extend collection if necessary, never lower quality to fill the corpus.
+- Frozen corpus: exactly **20,000 unique eligible articles**; primary-group quotas are soft.
+- One fixed UTC snapshot for Wikipedia, Wikidata, classification dependencies, identity resolution, and resumed work.
+- Full Lead prose only: preserve all introductory paragraphs, exclude body/infobox/table/navigation/reference material; initially display **six sentences**.
+- Graph edges come only from real hyperlinks in retained Full Lead prose. Full-article links are separate audit data, not operational graph edges.
+- Labels and hop counts remain human-selected. SUPPORTED/REFUTED: 2 or 3 hops and at least two distinct sentences, with no minimum document count. NEI: 2 hops and exactly one partial sentence.
+- Cross-document evidence is preferred, not mandatory. Derived coverage is descriptive, not a semantic validator.
+- No annotation review workflow, NEI search/review UI, review metadata, annotator IDs, date export, or draft restoration.
+- Each page opening/refresh starts a new UUID session and empty workspace; successful samples survive refresh and restart.
+- Only `Export Dataset` for the current session in the UI; commands recover older sessions.
+- No LLM, Cross-Encoder, Docker, or Agentic RAG implementation in this delivery.
+
+## Review Focus
+
+1. Historical page rendering can expand current templates despite `oldid`: test that unresolved content-generating templates never introduce current prose or links.
+2. Current title/redirect or Wikidata association can disagree with the snapshot: test snapshot identity proofs and reject ambiguous graph/classification mappings.
+3. Network ordering and interrupted writes can change rankings: test deterministic replay, stable tie-breaking, and resume after failure at each stage boundary.
+4. A committed Submit can lose its acknowledgement: test identical retry, conflicting retry, double-click, and refresh without duplicate/overwritten samples.
+5. Frozen SQLite files can depend on sidecar data or be modified accidentally: test standalone package transfer, read-only connections, byte integrity, and offline startup.
+
+## Technical Context and Repository Assessment
+
+The workspace currently contains requirements/specification documents and no application implementation to reuse. `docs/plans.md` was empty. There is no `.specify` directory, constitution, template stack, extension configuration, or existing agent-context file.
+
+Use the user's explicit `docs/` layout instead of generating a feature branch or another spec tree. Spec Kit research, data model, contracts, and quickstart artifacts are supplied alongside this plan. No absent setup/agent-context script is executed, and no new AGENTS.md is introduced solely for planning.
+
+Planning gates inherited from the agreed requirements:
+
+| Gate | Design result |
+| --- | --- |
+| Human annotation authority | Pass: server validates structure only; never chooses label/hops |
+| Snapshot consistency | Pass by design: raw revision source and historical dependency/identity proof; implementation tests required |
+| Lead-only corpus and graph | Pass: one extraction boundary supplies prose and link occurrences |
+| Frozen/local annotation | Pass: annotation service has no source-network client dependency |
+| External human review | Pass: only external corpus-quality assessment ingestion, no sample review workflow |
+| Scope preservation | Pass: future RAG and benchmark semantic validation remain outside delivery |
+
+## Phase 0: Research Decisions
+
+See [research.md](research.md) for decisions, alternatives, and primary-source citations; [research_vimqa.md](research_vimqa.md) records the requested ViMQA comparison.
+
+### Historical acquisition
+
+Use MediaWiki Action APIs for raw acquisition. Resolve each historical revision separately with `prop=revisions`, `rvstart=<snapshot>`, `rvdir=older`, `rvlimit=1`; verify its timestamp. Historical enumeration does not support batching many page histories into one such request. Batch retrieval of known revision contents afterward, initially 20 revision IDs per request, lowering the batch size on response-size/limit errors. Use `rvslots=main` and retain returned content model, source SHA-1, and local SHA-256.
+
+Apply the same revision-selection procedure to Wikidata items and referenced P279/occupation classes. Cache selected revisions by `(site, identity, snapshot)` and raw contents by `(site, revision_id)`. Current pageprops, categories, title lists, and sitelinks can discover candidates; they cannot prove historical content or classification. Validate the selected item's historical sitelink against the article's snapshot title/identity before classifying it.
+
+### Historical rendering decision
+
+`action=parse&oldid=...&prop=links` returns full-page links and does not isolate lead prose. In addition, `oldid` does not pin transcluded template versions. Consequently, API-parsed HTML is optional diagnostic/audit material, not authoritative evidence merely because it was requested with an old revision ID.
+
+The default authoritative extractor works on downloaded historical wikitext through an AST. It removes excluded components, preserves authored prose/explicit wikilinks, and uses versioned local formatters for a small allowlist of understood inline formatting/date templates. Each formatter consumes only raw historical arguments; it performs no live expansion. Content-producing templates outside that allowlist mark the article `unresolved_extraction` and prevent selection, rather than silently dropping factual clauses or substituting current content. A future historical-template renderer would require a new extraction version and pinned dependency closure; it is not the default implementation.
+
+### Network and storage policy
+
+Default external request concurrency is **one per host**, with a shared per-host limiter and explicit User-Agent/contact. Parallelize local extraction with at most two workers initially. Use persistent connections, `maxlag=5`, continuation handling, disk cache, retries, and backpressure. These are configurable engineering defaults, not promised source limits or throughput.
+
+Use one SQLite writer per writable database. Pipeline records and compressed raw blobs are separate from the portable frozen database. For annotation, retain `corpus.sqlite` read-only and write `annotations.sqlite` independently. Never assume copying a database with an outstanding WAL produces a complete standalone package.
+
+## Phase 1: Architecture and File Responsibilities
+
+```mermaid
+flowchart LR
+    Sources[Historical Wikipedia and Wikidata] --> Builder[Resumable corpus builder]
+    Builder --> Audit[Raw cache and selection audit]
+    Builder --> Corpus[Frozen corpus.sqlite and manifest]
+    Corpus --> API[Offline annotation backend]
+    UI[Vietnamese React workspace] <--> API
+    API --> Samples[Local annotations.sqlite]
+    Samples --> Export[Session JSONL exports]
+```
+
+```text
+configs/
+  pipeline.json                 Snapshot-independent defaults and soft quotas
+  classification_rules.json     Reviewed QID mappings, subtype roots, precedence
+  extraction_rules.json         Exclusions, inline-template formatters, split rules
+  ranking_rules.json            Signals, integer weights, partner caps
+backend/
+  pyproject.toml                Python dependencies and executable entry points
+  src/vimfc/
+    __main__.py                 Enables the documented python -m vimfc commands
+    domain.py                   Shared value types; no source-network dependencies
+    cli.py                      Builder/status/export command dispatch
+    storage/
+      pipeline_store.py         Run/stage/checkpoint transactions
+      raw_cache.py              Revision-addressed compressed objects
+      corpus_store.py           Read-only corpus query interface
+      annotation_store.py       Sessions, samples, idempotent writes
+      migrations.py             Independently versioned writable schemas
+    source/
+      mediawiki.py              HTTP requests, continuation, throttling, retries
+      revisions.py              Snapshot revision selection and content retrieval
+      identities.py             Historical aliases, redirects, move provenance
+      wikidata.py               Snapshot items and classification dependencies
+    pipeline/
+      collect.py                Candidate streams and initial/extension manifests
+      extract.py                Lead prose/link AST extraction
+      sentences.py              Deterministic Vietnamese sentence segmentation
+      classify.py               Rule-based supported group/subtype classification
+      quality.py                Eligibility filters and article signals
+      pairs.py                  Bounded bridge/comparison candidate generation
+      rank.py                   Pair features and fixed-point scoring
+      select.py                 Deterministic graph-aware greedy selection
+      freeze.py                 Validation, portable DB creation, publication
+      report.py                 Progress/ETA and quality report generation
+      runner.py                 Stage dependency and checkpoint orchestration
+    annotation/
+      service.py                Structural validation, authoritative source loading
+      export.py                 Common record serializer and JSONL streaming
+    api/
+      app.py                    Lifespan, read-only corpus validation, router wiring
+      schemas.py                Strict request/response models
+      sessions.py               Session creation/count endpoints
+      articles.py               Local article/random/discovery endpoints
+      samples.py                Submit and current-session export endpoints
+frontend/
+  src/api.ts                    Typed API transport; retry identity handling
+  src/workspace.ts              Reducer for ephemeral workspace/draft state
+  src/App.tsx                   Session initialization and three-zone layout
+  src/components/               ArticleCard, DiscoveryPanel, AnnotationForm, Header
+  src/styles.css                Readable Vietnamese UI and selected-sentence state
+tests/
+  fixtures/                     Archived wikitext/JSON/link and failure fixtures
+  unit/                         Extraction, classification, scores, reducer tests
+  integration/                  Historical HTTP, storage, freeze, API, CLI tests
+  e2e/                          Offline annotation/refresh/export browser tests
+scripts/                        Installation and Windows helper scripts
+start.ps1                       One-command application launcher
+data/
+  pipeline.sqlite               Resumable builder database; not annotator package
+  raw/                          Compressed source/cache objects and manifests
+  corpora/<corpus_version>/      corpus.sqlite and package manifest
+  annotations.sqlite            Local submitted samples and sessions
+docs/                           Specification, plan, design contracts and run guides
+```
+
+Files listed above are proposed implementation outputs, not files already created by this planning turn. Keep source-network code inaccessible through the annotation service dependency graph.
+
+### Shared interfaces
+
+Use explicit value types from `domain.py`:
+
+| Interface | Contract |
+| --- | --- |
+| `select_revision(site, identity, snapshot) -> SourceRevisionRef` | Return verified historical identity/revision/timestamp or typed unresolved failure |
+| `fetch_revisions(site, refs) -> list[RawRevision]` | Retrieve known IDs, verify metadata, persist reusable raw objects |
+| `extract_lead(raw, rules) -> LeadExtractionResult` | Prose paragraphs, sentences, retained link occurrences, diagnostics, supported/pending outcome |
+| `classify(article_ref, item_history, rules) -> ClassificationResult` | Primary group, subtype IDs, property paths and revision-backed provenance |
+| `build_pairs(candidates, lead_links, rules) -> PairManifest` | Bounded reproducible pair identities/features; no human labels/hops |
+| `select_corpus(candidates, pairs, rules) -> SelectionManifest` | Exactly 20,000 IDs or insufficient-eligible report; deterministic trace |
+| `freeze(run_id, selection, output_path) -> CorpusManifest` | Complete portable package only after validation; never overwrite a version |
+| `submit_sample(session_id, submission_id, draft) -> SampleRecord` | Resolve source sentences locally, validate, atomically persist or replay/conflict |
+| `export_session(session_id) -> iterator[SampleRecord]` | One common serializer for HTTP download and command export |
+
+The exact fields, relationships, and index choices are defined in [data-model.md](data-model.md). Public command/request/response behavior is defined in [contracts/interfaces.md](contracts/interfaces.md).
+
+## Phase 1A: Corpus Builder Design
+
+### 1. Candidate collection and snapshot manifest
+
+Use round-robin category/subtype seed streams and namespace-zero enumeration as discovery mechanisms; capture all continuation cursors and stream order. Current category memberships only schedule potential pages. Classification and evidence always come from historical source data. Persist a candidate manifest so replay does not depend on a later live enumeration.
+
+Assign deterministic discovery order using a recorded seed and stable digest of normalized page identity, rather than Python's randomized hash. Balance stream scheduling to avoid taking the first 80,000 alphabetically listed pages. Grow the initial manifest to 80,000 unique candidate identities, deduplicating redirect aliases after resolution. If eligible supply is short, add the next persisted stream tranche, initially 10,000 additional unique candidates, with the same run snapshot/rules; repeat or report exhausted supply.
+
+For historical titles or moved pages, use recorded move/redirect revision provenance to establish identity at the snapshot. Current redirect resolution is only a lookup hint. Follow at most ten historical redirect steps, detect cycles, retain original titles/fragments and all resolution revisions, and mark unresolved/ambiguous targets explicitly. Do not invent an edge when identity cannot be established. A run is a reproducible selection from its archived candidate manifest, not a claim to recreate every deleted page in historical Wikipedia.
+
+### 2. Extraction and sentence identity
+
+Determine the lead AST region before the first section heading. Drop infobox/table/list/navigation/reference/media nodes; convert wikilink labels, external-link labels, inline emphasis and HTML entities into prose. Preserve paragraph boundaries and link span-to-sentence associations internally so the graph and text have the same extraction boundary. Text offsets remain internal extraction aids, not annotation/export fields.
+
+Do not drop arbitrary unknown inline templates and call the remaining sentence complete. Resolve only the configured argument-based formatters; otherwise quarantine the candidate for extraction support. Snapshot direct classification categories can be parsed from raw wikitext; template-generated categories do not become historical classification evidence without resolved provenance.
+
+Normalize to Unicode NFC without changing spellings or silently correcting human factual text. Segment using versioned Vietnamese-aware punctuation rules: protect decimals, initials and an explicit abbreviation list; split on sentence-ending punctuation and paragraph boundaries; never split inside protected constructs. Store exact resulting sentence text. Test against archived examples with names, `TP.`, `TS.`, dates, ellipses and quotations. A rule change requires a new extraction version/run; frozen sentence IDs never change.
+
+### 3. Classification and quality
+
+Maintain an explicit configuration mapping known Wikidata class/occupation identities to the eight primary groups and supported subtypes. P31/P279/P106 traversal uses snapshot JSON only, memoizes shared dependencies, detects cycles, and records the shortest supported classification path. Missing dependency history or an unresolved class conflicts produces pending/unclassified, not a guessed class. Traversal depth defaults to 12 and reports truncation; changing it changes the classification version.
+
+Resolve overlaps by specific supported rules before broad classes: stadiums/buildings/facilities map to Landmark/Facility, universities to Organization, countries/cities to Location, and award/competition identities to their dedicated group before generic Event. Use canonical QIDs as subtype identities with display names; broad Person alone does not enable Scientist/Footballer comparison.
+
+Quality rule version 1 initially requires nonempty lead prose, at least two complete nontrivial sentences, at least 40 whitespace-delimited tokens, and at least one recognized factual signal. Signals include supported person/organization/creative-work relation expressions, dated events, places, authorship, employment, establishment, or comparable attributes. Exclude the prohibited article kinds using historical classification/raw-page evidence. These conservative thresholds are versioned engineering choices, not claims of semantic correctness; calibrate on archived pilot data before the production run and never silently relax them to reach 20,000.
+
+### 4. Pair generation and reranking
+
+Extract candidate relation/attribute signals only from lead sentences. A signal records sentence ID, linked entity identity where available, matched rule, normalized attribute/value kind, and extraction provenance. Wikidata may organize types; it does not supply benchmark facts or substitute for missing summary attributes.
+
+Bridge candidates come from resolved lead edges A -> B with both articles eligible and complementary lead information. Comparison candidates are blocked by `(subtype_id, lead_attribute_key, value_kind)`, such as compatible founding years or birth dates. Normalize units/date specificity before treating attributes as compatible; unparseable or incomparable values do not receive compatibility credit.
+
+Avoid all-pairs comparison of an 80,000-item pool. Within each block, generate reproducible cyclic neighbors from digest-sorted article identities, deduplicate unordered pairs, and initially retain at most 20 comparison partners and 20 highest-potential outgoing bridge partners per article. Record omitted counts; caps apply to ranking candidate pairs, not to the stored complete lead-link graph or annotation discovery.
+
+Use fixed-point integer scores and record the feature vector. Initial weights (each signal normalized to 0–100) are:
+
+| Pair score | Initial expression |
+| --- | --- |
+| Bridge | `3 * relation_signal + 3 * complementary_information + 2 * endpoint_quality - 2 * redundancy - 3 * shortcut_risk` |
+| Comparison | `3 * subtype_match + 3 * attribute_compatibility + 2 * endpoint_quality - 2 * redundancy - 3 * shortcut_risk` |
+
+`endpoint_quality` is the lower of the two article-quality scores. Redundancy uses deterministic token-set overlap with a versioned stopword list; complementarity rewards matched factual signals absent from the partner. Shortcut-risk rules detect direct combined relational expressions and duplicated decisive attributes. These are heuristics, not proof that a prospective claim needs multiple steps. Persist zero/negative scores too; only positive-scoring pairs contribute positive partner utility.
+
+### 5. Graph-aware greedy selection
+
+Maintain selected identities, group/subtype counts, positive partner adjacency, and a priority queue of marginal gains for singleton and pair bundles. A bundle adds only its currently unselected identities and never exceeds remaining corpus capacity.
+
+Initial marginal gain per newly added article is:
+
+```text
+quality contribution
++ newly retained positive pair utility
++ lead-based internal-connectivity gain
++ primary-group deficit bonus
++ previously uncovered subtype bonus
+- high-degree hub penalty
+- diminishing-return penalty for overrepresented groups/subtypes
+```
+
+Use bounded degree contributions (`min(degree, 20)`), normalized pair utility, and diminishing novelty rewards so large link counts do not dominate. Initial weights are quality 2, pair utility 3, connectivity 1, group deficit 2, subtype novelty 1, and hub/overrepresentation penalties 1 each; all are versioned. Recompute only candidates affected by changed neighbors or group/subtype counts, with lazy queue invalidation. Tie-break by canonical ordered page-ID tuple.
+
+Stop only at exactly 20,000 eligible distinct articles. If supply is insufficient, expand collection and rebuild derived stages against the new manifest without changing previous raw inputs or eligibility rules. Soft quotas may deviate; output the deviations and reasons. Retain the selection trace with gains/feature values per addition.
+
+### 6. Freeze and independent artifacts
+
+Build a new temporary standalone corpus database from the selected IDs, complete stored leads/sentences, entity provenance, all selected-source lead targets (including external targets for Shared Entity), and internal lead edges. Corpus-internal edges require both selected endpoints; full-article audit links remain separate and never drive discovery.
+
+Validate article count, one primary group each, revision cutoffs, extraction support, contiguous sentence IDs, source link provenance, internal-edge endpoints, foreign keys, and content hashes. Use `integrity_check` for first publication and generate connectivity/subtype/pair/group reports. Connectivity reports include internal edge count, in/out-degree distributions, isolated-article count and weakly connected component sizes; pair reports separate positive-scoring bridge and comparison counts. Human Valid 2-hop Yield is ingested as an optional external assessment artifact with reviewed/valid counts and assessment provenance; report unassessed if absent. It is not a new sample-review gate or automatic freeze threshold.
+
+Assign `corpus_version` from snapshot/config/rule/input/selection/content manifest digests; exclude wall-clock operation timestamps from content identity. Close/checkpoint the build database, use standalone DELETE-journal packaging, and hash the final `corpus.sqlite` after all immutable metadata is written. Publish only a new version directory through an atomic rename on the same volume; never overwrite an existing package. The external `manifest.json` holds the database file hash, avoiding self-referential hashing.
+
+Export `corpus.jsonl`, `graph.jsonl`, and manifest independently, including all selected articles, version fields and complete lead data. Keep raw pipeline cache and selection audit records in the builder workspace for replay; the annotator package needs the frozen database and manifest, not all 80,000 raw candidates.
+
+## Phase 1B: Performance and Resume Design
+
+| Setting | Initial default / behavior |
+| --- | --- |
+| Host request limit | One active request per host; aggregate throttling across clients |
+| HTTP connection | Persistent HTTPX client, compression, informative User-Agent/contact |
+| API lag | `maxlag=5`; detect API errors even with HTTP 200 |
+| Known-revision content batch | 20 IDs, bounded by payload bytes and documented limits |
+| Local extraction workers | 2; bounded input/result queues |
+| Stage transaction batch | Up to 100 completed records or 10 seconds, whichever comes first |
+| Retry | At most 5 attempts for retryable timeout/429/5xx/maxlag; exponential backoff capped at 60 seconds, wait at least 5 seconds for maxlag and honor a longer Retry-After |
+| Raw storage | Gzip-compressed, revision-addressed, hash-verified objects; atomic temp-to-final writes |
+| Database writer | One writer per DB, foreign keys enabled, busy timeout 5 seconds |
+| Pipeline journal | WAL during processing; clean closure/checkpoint before archival copies |
+| Progress | Counts by stage/state, rolling speed, cache reuse and remaining-queue estimate; ETA unknown during expansion/insufficient observations |
+
+A durable stage result and its completed state are committed together. Worker leases may expire after interruption; resume requeues incomplete leases without discarding completed records. Failed transient work records `attempt_count`, `last_error`, and `next_retry_at`; permanent/unavailable failures remain explicit. Classified/extracted rejection is a completed stage result with a reason, not a network failure.
+
+Stage fingerprints include only relevant dependencies: raw retrieval depends on snapshot/identity, extraction on raw hash/extraction version, classification on historical item closure/rules, pair ranking on extraction/classification/quality versions, and selection on candidate/pair manifest plus ranking/selection rules. The run's entire config fingerprint is immutable. Any incompatible change creates a new run and reuses only matching dependency outputs. Wall-clock retry/progress logs may differ on replay; selected content/scores/order must not.
+
+Measure acquisition, extraction, pair generation and selection on increasing pilot manifests (100, 1,000, then 10,000 candidates) before scheduling 80,000. Log requests/cache-hit counts, peak memory, disk growth and stage durations; do not promise completion in a fixed number of hours. Use sparse adjacency, chunked database reads and bounded partner candidates rather than dense matrices.
+
+## Phase 1C: Annotation Backend and Frontend
+
+### Storage boundaries
+
+`corpus.sqlite` opens with `mode=ro`. Do not enable `immutable=1` merely to bypass locking; use it only if deployment actually guarantees immutability. `annotations.sqlite` binds to one corpus version, keeping sample evidence text and provenance as a durable snapshot. Source metadata is authoritative on the backend, not trusted from browser payloads.
+
+Validate the frozen package fully on first use and when its identity changes. Startup can reuse a local successful validation record only when manifest identity and file fingerprint are unchanged. Otherwise repeat hash/integrity/count validation; offer an explicit full verify command. Do not repeatedly scan all prose on every article request.
+
+### API and workspace lifecycle
+
+Create a session once per page bootstrap. Use a bootstrap promise outside React component effects to avoid duplicate session creation in development StrictMode; do not keep session/draft in localStorage. Backend session UUIDs remain independent between machines.
+
+Workspace reducer state contains Article A, additional articles, expanded/collapsed flags, discovery controls/candidates, claim, nullable label/hop count, and a set of `(page_id, revision_id, sent_id)` selections. Operations may occur in any order before Submit. Selecting sentences after the first six and collapsing an article does not clear their selections.
+
+Keep Article A fixed until Re-random. Add candidates from any open article with a five-article/unique-page guard. Confirm Remove only when the removed article has selected evidence. Confirm Re-random for any nonempty annotation field/evidence or added workspace exploration. Do not block refresh or restore discarded drafts, as fresh-page reset is intentional.
+
+Local graph/subtype indexes drive three discovery modes. Return paginated stable candidates (default 25 per page) with explicit empty/error responses. Random Candidate samples uniformly from the eligible candidate set excluding open pages, not merely the first result page. Random Article samples uniformly through the dense frozen article ordinal index; no `ORDER BY RANDOM()` scan is required.
+
+### Submit and idempotency
+
+The client generates a `submission_id` when initiating a logical Submit, disables duplicate in-flight clicks, and retries unchanged payloads using the same ID. If the human edits the draft, use a new logical submission ID; retain the old one only for resolving its original request, never to overwrite it.
+
+The server uses strict label/hop types and requires a nonblank claim. It checks session/corpus identity, at most five distinct workspace IDs if supplied, distinct evidence keys, and source membership/revision/sentence existence. SUPPORTED/REFUTED require at least two selections; NEI requires exactly one and human-entered hop count 2. It does not infer contradictions, evidence sufficiency, necessity, or factual hops.
+
+Build evidence objects by loading exact frozen sentences; copy human label/hop values unchanged. Derive coverage by distinct evidence `page_id` count. Persist submission payload digest, sample, evidence and sample metadata in one annotation transaction. On duplicate submission ID, return the stored record for equal digest or 409 conflict for changed content. Use the common serializer for stored/API/export records; `reasoning_chain` remains null.
+
+On confirmed success, clear only human form values and selections; preserve workspace/discovery/display context. On an uncertain response, keep the draft for idempotent retry. The current sample counter comes from the stored session count rather than optimistic increments.
+
+### Export and failure states
+
+Export current-session records in deterministic `(created_at, id)` order from a consistent read snapshot. Produce UTF-8 JSONL without a BOM, preserving Vietnamese characters. Use the same exporter for CLI recovery; write CLI outputs to a temporary file then rename after success. Use a session-derived filename such as `VIMFC_SESSION_<uuid>.jsonl` to avoid pretending there is a synchronized session number.
+
+No current-session samples means a disabled UI button; the HTTP endpoint returns a clear empty-session error if called directly. Export does not clear data or workspace. Display concise Vietnamese messages for invalid input, storage errors, corrupt corpus, no candidates and network-to-local-backend failures; there is no Wikipedia API dependency in runtime discovery.
+
+## Phase 1D: Windows Delivery
+
+`start.ps1` locates the workspace from its own script path, checks the Python environment, locked frontend dependencies, schema compatibility, corpus/manifest validity, available ports and backend readiness. It must not install dependencies silently, rebuild the corpus, truncate databases, or spawn duplicate services on port conflicts.
+
+Build the frontend using the locked Vite setup and serve its static output from FastAPI for ordinary annotation; use Vite's development server only when explicitly requested. This starts both application layers through one command while avoiding a Node server requirement for every production-local session. Node/npm remain installation/build prerequisites. Separate development ports are 8000/5173; ordinary local service binds to `127.0.0.1:8000`.
+
+Launch helpers with hidden windows, poll readiness with a bounded timeout, print the confirmed URL, and clean up only processes launched by this invocation on failure/exit. Existing services are not terminated blindly. `scripts/install.ps1` documents explicit environment/dependency setup; later launches reuse build outputs unless inputs change.
+
+The transfer package contains source code, dependency locks, `start.ps1`, frozen `corpus.sqlite`, its manifest and README. Do not include the first annotator's writable annotation database as the second annotator's initial state. If the second machine has no annotation DB, create it; if it has one, migrate non-destructively and require its bound corpus version to match.
+
+## Phase 2: Implementation Milestones and Verification
+
+Implement dependent milestones in order; each carries one coherent reviewable deliverable. `tasks.md` will expand them into executable tasks without changing the spec.
+
+### M1 - Source Contracts, Run Storage, and Snapshot Acquisition
+
+**Owns:** `domain.py`, source clients/resolver, pipeline/raw stores, configs, dependency setup.  
+**Covers:** FR-006–009, FR-022–026; SC-002, SC-004.
+
+- [ ] Write fixture-backed failing tests for revision cutoff, one-page historical selection, batch raw retrieval, API-200 maxlag, missing history, redirect/move ambiguity, shared P279 cache, and interruption between blob write/stage commit.
+- [ ] Implement interfaces and version fingerprints, then verify with `python -m pytest tests/integration/test_snapshot_sources.py tests/integration/test_resume.py` from the installed project environment.
+- [ ] Demonstrate same-snapshot compatible resume with unchanged completed-record/request counts; archive source fixtures and acquisition measurements.
+
+### M2 - Lead Extraction, Sentence IDs, Classification, and Eligibility
+
+**Owns:** extractor/splitter/classifier/quality modules and reviewed rule configs.  
+**Covers:** FR-010–014, FR-046; SC-001, SC-003.
+
+- [ ] Write failing tests for complete multi-paragraph leads, heading boundaries, excluded components, unknown content templates, supported inline dates, NFC/abbreviations, body-only links, conflicting classification and missing historical dependencies.
+- [ ] Implement result/provenance types and deterministic rules; verify with `python -m pytest tests/unit/test_extract.py tests/unit/test_sentences.py tests/unit/test_classify.py tests/unit/test_quality.py`.
+- [ ] Inspect a real-source pilot without generating claims automatically; freeze production rule versions only after documented extraction/classification calibration.
+
+### M3 - Pair Reranking, Graph-aware Selection, and Freeze
+
+**Owns:** pair/rank/select/freeze/report modules and corpus schema/export.  
+**Covers:** FR-015–021, FR-027–028, FR-061; SC-001–004, SC-011.
+
+- [ ] Write failing tests for bounded compatible comparison blocks, directed lead bridges, deterministic ties, diversity/soft quotas, partner retention, insufficient supply, exact 20,000 publication gate and full-article/body-link exclusion.
+- [ ] Implement scoring/selection traces and standalone publication; verify with `python -m pytest tests/unit/test_pairs.py tests/unit/test_select.py tests/integration/test_freeze.py`.
+- [ ] Compare resumed/replayed manifests; test standalone DB copy with no sidecars and rejection of attempted corpus mutations; keep external yield unassessed until humans supply actual results.
+
+### M4 - Local Discovery and Atomic Annotation Persistence
+
+**Owns:** corpus reader, annotation storage/service, API schemas/routes, serializer/CLI export.  
+**Covers:** FR-029–030, FR-032–035, FR-038–043, FR-045, FR-049–053, FR-056–063; SC-005–010.
+
+- [ ] Write failing tests for all discovery modes, uniformly eligible random candidates, external shared entities, strict subtype matching, structural validation, same-document SUPPORTED/REFUTED, NEI counts, historical source mismatch and offline runtime.
+- [ ] Implement source-authoritative Submit and coverage; verify identical replay, conflicting reuse, transaction rollback, response loss, per-session counts and exact JSONL serializer behavior with `python -m pytest tests/integration/test_annotation_api.py tests/integration/test_exports.py`.
+- [ ] Check frozen DB hashes before/after application use and verify separate-machine session/sample isolation using the same package.
+
+### M5 - Vietnamese Workspace UI and Session Lifecycle
+
+**Owns:** typed frontend transport, reducer, components/styles and browser tests.  
+**Covers:** FR-031, FR-036–039, FR-044, FR-047–048, FR-054–059, FR-064; SC-005–008.
+
+- [ ] Test reducer behaviors before implementation: six-sentence display, hidden selected sentences, maximum-five uniqueness, Article A immutability, Remove/Re-random cancellation, final-label evidence classification and success-only reset.
+- [ ] Implement UI without inferred label/hop values, extra metadata inputs, review panels, draft storage or date filters; run `npm --prefix frontend run typecheck` and `npm --prefix frontend run test`.
+- [ ] Run `npm --prefix frontend run test:e2e` for fresh-page UUID sessions, failed Submit preservation, acknowledged retry, export disabled/enabled states, continued annotation and offline source access.
+
+### M6 - Windows Packaging, Real-data Acceptance, and Handoff
+
+**Owns:** PowerShell startup/install helpers, locked builds, README and end-to-end acceptance report.  
+**Covers:** FR-001–005, FR-062–066; SC-009–012 plus full cross-story verification.
+
+- [ ] Test missing prerequisites, unfrozen/corrupt packages, occupied ports, hidden helper startup, readiness failure, clean shutdown and persistent existing samples.
+- [ ] Follow [quickstart.md](quickstart.md), collect/freeze the real 20,000-article corpus, and validate all graph/source invariants. Fixture-only tests do not count as delivery of the real corpus.
+- [ ] Run locked frontend build and applicable backend/browser tests, transfer the package to the second Windows installation, and record measured local startup/query performance and all remaining external data failures.
+- [ ] Publish implementation validation evidence separately from human benchmark completion; do not claim 2,000 verified claims merely because the software passes.
+
+## Requirement Traceability
+
+| Specification area | Plan ownership | Acceptance evidence |
+| --- | --- | --- |
+| FR-001–005 | Global constraints, M6 | Scope audit and offline/research-boundary tests |
+| FR-006–009 | Historical acquisition, M1 | Cutoff/provenance/identity/dependency fixtures |
+| FR-010–014 | Extraction/classification, M2 | Lead boundary, sentence and quota diagnostics |
+| FR-015–021 | Pair/selection/freeze, M3 | Score traces, graph-only lead links, yield report |
+| FR-022–026 | Collector/resume, M1 | 80,000 initial manifest, extension, idempotent checkpoint replay |
+| FR-027–028 | Freeze, M3 | Exact-count/integrity gate and immutable package |
+| FR-029–030, FR-032–035 | Local API, M4 | Offline discovery, canonical identity, subtype/candidate tests |
+| FR-031, FR-036–037 | Workspace, M5 | Six-sentence/Remove/Re-random browser tests |
+| FR-038–045 | Annotation service/UI, M4–M5 | Human authority and evidence-count tests |
+| FR-046–048 | Guidance/research, M2/M5 | Visible guidance and unchanged validation |
+| FR-049–053 | Storage/service, M4 | Derived coverage, atomic save and retry tests |
+| FR-054–056 | UI/session, M4–M5 | Success-only reset and fresh page sessions |
+| FR-057–060 | Export/API/CLI, M4–M5 | Shared serializer, current and historical session exports |
+| FR-061 | Frozen artifact exports, M3 | All selected articles and versioned internal graph |
+| FR-062–065 | Windows delivery, M6 | Transfer/startup/README acceptance |
+| FR-066 | Research artifact, M6 | ViMQA methodology/adaptation review |
+
+## Design Limits and Handoff
+
+- Historical templates, moved titles, and item associations are explicit acquisition/extraction failure classes. Do not repair them with live data. The conservative extractor may require more than 80,000 candidates; report actual feasibility before production freeze.
+- Rule-based factual/comparison/shortcut signals estimate potential. Human Valid 2-hop Yield and benchmark verification remain external research responsibilities.
+- Record performance observations before tuning defaults. Rule/config changes require a new compatible-design run as specified; runtime retry timing is not a content-selection input.
+- No additional approval flow, semantic review UI, quota enforcement, or minimum-two-document validation is introduced.
+- Plan outputs are documents only. Next step: generate dependency-ordered `tasks.md` from this plan when requested; application implementation has not started.
