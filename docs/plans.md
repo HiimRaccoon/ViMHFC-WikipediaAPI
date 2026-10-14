@@ -26,6 +26,7 @@
 - Each page opening/refresh starts a new UUID session and empty workspace; successful samples survive refresh and restart.
 - Only `Export Dataset` for the current session in the UI; commands recover older sessions.
 - No LLM, Cross-Encoder, Docker, or Agentic RAG implementation in this delivery.
+- Pilot validation is staged at **100 -> 1,000 -> 10,000 candidates** using the fixed snapshot. Production collection requires a reported pilot assessment, no unresolved critical defects, and the user's explicit decision to continue; it never starts automatically after a pilot.
 
 ## Review Focus
 
@@ -265,7 +266,57 @@ A durable stage result and its completed state are committed together. Worker le
 
 Stage fingerprints include only relevant dependencies: raw retrieval depends on snapshot/identity, extraction on raw hash/extraction version, classification on historical item closure/rules, pair ranking on extraction/classification/quality versions, and selection on candidate/pair manifest plus ranking/selection rules. The run's entire config fingerprint is immutable. Any incompatible change creates a new run and reuses only matching dependency outputs. Wall-clock retry/progress logs may differ on replay; selected content/scores/order must not.
 
-Measure acquisition, extraction, pair generation and selection on increasing pilot manifests (100, 1,000, then 10,000 candidates) before scheduling 80,000. Log requests/cache-hit counts, peak memory, disk growth and stage durations; do not promise completion in a fixed number of hours. Use sparse adjacency, chunked database reads and bounded partner candidates rather than dense matrices.
+Measure acquisition, extraction, pair generation and selection on increasing pilot manifests (100, 1,000, then 10,000 candidates) before scheduling 80,000, following the performance benchmark and extraction audit below. Use sparse adjacency, chunked database reads and bounded partner candidates rather than dense matrices. These pilots are technical validation only; they do not satisfy the 20,000-article corpus delivery or authorize production collection.
+
+### B. Pilot Performance Benchmark
+
+Use cumulative, archived cohorts of **100 -> 1,000 -> 10,000 unique candidates** under the same Fixed Snapshot, deterministic discovery order, and reproducibility rules. Every pilot report records the run ID, cohort manifest/hash, snapshot, configuration/rule versions, machine environment, start/end time, and reused work. Stage execution is bounded by the pilot cohort; finishing a pilot must not expand collection toward 80,000 automatically.
+
+The 100-candidate pilot checks acquisition, extraction, instrumentation and basic stage correctness. After the **1,000-candidate pilot**, produce a machine-readable report and a readable summary containing:
+
+| Measurement | Reporting requirement |
+| --- | --- |
+| Stage duration | Wall-clock and active processing time for discovery, historical acquisition/identity resolution, extraction/sentence splitting, classification, filtering, pair generation/ranking and selection assessment; separate queue/backoff time and work not executed |
+| Throughput | Unique articles processed per minute by stage and end-to-end; distinguish newly processed candidates from cached/reused results and report candidate/eligible counts |
+| API requests | Total physical requests, including retries, broken down by Wikipedia/Wikidata host, endpoint category and stage; separately count classification/identity dependencies |
+| Cache hit rate | Cache hits and total lookups, with their ratio, by raw revision and derived-stage cache; separate cold acquisition from warm resume/replay |
+| Retry/error rate | Counts, denominators and rates for retried requests, request errors, failed candidates and unresolved candidates; separate transient network/API errors from permanent source gaps and quality rejections |
+| CPU/RAM/disk | Sampling interval, CPU utilization/time, peak and observed RAM, disk usage/growth and read/write activity for the pipeline and workers; include available disk space and identify unavailable measurements |
+| Production ETA | Estimated processing time for 80,000 candidates, based on stage throughput, observed dependency fan-out, cache assumptions and source/backoff latency; include uncertainty and identify unmeasured full-size selection costs |
+
+Use explicit units and denominators so retry counts, dependencies and cache reuse cannot inflate article throughput. Report stage and end-to-end elapsed times separately because overlapping stages cannot simply be added. Do not present a linear extrapolation from warm-cache replay as a guaranteed cold-production ETA.
+
+Identify the measured bottleneck and, if necessary, propose optimizations such as additional supported batching, dependency-cache reuse, fewer duplicate requests, bounded local workers or indexed/chunked database access. Continue to obey Wikimedia etiquette, the shared per-host limiter, maxlag and Retry-After; do not optimize by using live metadata or unbounded requests. Record before/after measurements and configuration changes rather than silently changing defaults.
+
+After the **10,000-candidate pilot**, report:
+
+- Scaling behavior compared with the 1,000-candidate results, including memory/disk growth, request fan-out, stage throughput and revised 80,000-candidate ETA.
+- Stability under long execution, injected/observed source failures and interruption; checkpoint/resume reuse, duplicate prevention and deterministic replay evidence.
+- Candidate-pair quality diagnostics: bridge/comparison counts, subtype/attribute compatibility, partner diversity, redundancy/shortcut-risk signals and retained lead-link provenance. Scores remain potential estimates, not measured human Valid 2-hop Yield unless an actual external assessment exists.
+- Remaining critical defects, unresolved template/source risks, bottlenecks and recommended actions.
+
+Any selection assessment on a small pilot is diagnostic and reports insufficient supply where applicable. Do not publish a reduced-size frozen corpus or claim that a successful pilot constitutes the required 20,000-article corpus.
+
+**Production gate:** present the pilot reports and recommendations to the user. Production 80,000 collection may proceed only after results are evaluated, critical defects are resolved, and the user explicitly decides to continue. Report completion of a pilot and stop; no scheduler, helper, retry or startup command may automatically cross this gate. The deliberate production invocation records the reviewed report identity and run/config versions. This gate is unrelated to annotation review or label/hop decisions.
+
+### C. Template Extraction Quality Audit
+
+Every pilot (100, 1,000 and 10,000 candidates) includes an extraction audit with the same run/cohort/version identifiers as its performance report:
+
+- Number of articles attempted, extracted successfully, marked `unresolved_extraction`, or failed for another reason; report success and unresolved rates against the explicit attempted-article denominator and separately report candidates not yet attempted.
+- Most frequent unsupported/failing template names, sorted by distinct affected-article count, with the matched failure reason and representative archived revision references. Count each affected article once per template; do not sum overlapping template counts as if they were distinct articles.
+- Impact on Full Lead completeness, omitted/unresolved factual clauses, paragraph/sentence boundaries and provisional sentence IDs, and missing or incorrectly scoped Lead-only Hyperlink Graph occurrences.
+- Separation of supported historical-safe inline templates, intentionally excluded non-prose templates/components, and unresolved content-producing templates; do not count a correctly removed infobox as a failed factual formatter.
+
+Audit diagnostic/provisional outputs without treating incomplete extraction or its graph as validated corpus data. Record affected article IDs, raw revision hashes and exact template names/arguments sufficient to reproduce each failure; never insert a live-expanded clause or link to make an audit sample look complete.
+
+Prioritize widely occurring unsupported factual templates for a **historical-safe formatter** with fixture-backed tests. Each formatter uses only archived revision arguments and, if needed, separately pinned historical dependencies; it must preserve factual text, sentence boundaries and lead-link provenance without live template content. Test representative supported forms, missing/ambiguous arguments, nested constructs and exclusion boundaries. Unsupported forms remain explicit unresolved cases, not silently stripped text.
+
+Changing a formatter or extraction rules/version requires a **new pipeline run** under the existing incompatibility policy, preserving the same snapshot for pilot comparison. Reuse compatible historical raw data and unaffected stages; rerun extraction/sentence splitting and all affected filtering, pair/ranking, graph and selection dependencies. Sentence IDs may be regenerated only in the new unfrozen run; never alter frozen IDs or mix extraction versions in a corpus.
+
+Regenerate the relevant pilot reports after changes and validate the final production rule version at the 1,000- and 10,000-candidate stages using reusable archived cohorts. Earlier reports remain historical evidence, not proof that changed rules passed. Address template impacts and report remaining risks before the user's production decision; never lower corpus standards or silently discard factual content to improve extraction yield.
+
+Performance/extraction reports are builder validation artifacts (for example `reports/pilots/<run_id>/<cohort-size>/` with metric, template-impact and assessment files), not annotation metadata. Planning this audit does not run a pilot, collect data, implement formatters or create TASKS.
 
 ## Phase 1C: Annotation Backend and Frontend
 
@@ -323,6 +374,7 @@ Implement dependent milestones in order; each carries one coherent reviewable de
 - [ ] Write fixture-backed failing tests for revision cutoff, one-page historical selection, batch raw retrieval, API-200 maxlag, missing history, redirect/move ambiguity, shared P279 cache, and interruption between blob write/stage commit.
 - [ ] Implement interfaces and version fingerprints, then verify with `python -m pytest tests/integration/test_snapshot_sources.py tests/integration/test_resume.py` from the installed project environment.
 - [ ] Demonstrate same-snapshot compatible resume with unchanged completed-record/request counts; archive source fixtures and acquisition measurements.
+- [ ] Verify the bounded 100/1,000/10,000 pilot controls, report denominators, cached-vs-new work accounting and the prohibition on automatic production escalation.
 
 ### M2 - Lead Extraction, Sentence IDs, Classification, and Eligibility
 
@@ -331,7 +383,7 @@ Implement dependent milestones in order; each carries one coherent reviewable de
 
 - [ ] Write failing tests for complete multi-paragraph leads, heading boundaries, excluded components, unknown content templates, supported inline dates, NFC/abbreviations, body-only links, conflicting classification and missing historical dependencies.
 - [ ] Implement result/provenance types and deterministic rules; verify with `python -m pytest tests/unit/test_extract.py tests/unit/test_sentences.py tests/unit/test_classify.py tests/unit/test_quality.py`.
-- [ ] Inspect a real-source pilot without generating claims automatically; freeze production rule versions only after documented extraction/classification calibration.
+- [ ] Inspect each real-source pilot without generating claims automatically; publish the template success/unresolved/top-template/lead-sentence-graph impact audit, test historical-safe formatters and rerun affected stages in a new run when rules change. Finalize production rules only after the corresponding pilot reports are regenerated.
 
 ### M3 - Pair Reranking, Graph-aware Selection, and Freeze
 
@@ -341,6 +393,7 @@ Implement dependent milestones in order; each carries one coherent reviewable de
 - [ ] Write failing tests for bounded compatible comparison blocks, directed lead bridges, deterministic ties, diversity/soft quotas, partner retention, insufficient supply, exact 20,000 publication gate and full-article/body-link exclusion.
 - [ ] Implement scoring/selection traces and standalone publication; verify with `python -m pytest tests/unit/test_pairs.py tests/unit/test_select.py tests/integration/test_freeze.py`.
 - [ ] Compare resumed/replayed manifests; test standalone DB copy with no sidecars and rejection of attempted corpus mutations; keep external yield unassessed until humans supply actual results.
+- [ ] Report 10,000-candidate scaling, stability, checkpoint/resume and candidate-pair quality; small-pilot diagnostics must not bypass the exactly-20,000 freeze gate.
 
 ### M4 - Local Discovery and Atomic Annotation Persistence
 
@@ -366,7 +419,7 @@ Implement dependent milestones in order; each carries one coherent reviewable de
 **Covers:** FR-001–005, FR-062–066; SC-009–012 plus full cross-story verification.
 
 - [ ] Test missing prerequisites, unfrozen/corrupt packages, occupied ports, hidden helper startup, readiness failure, clean shutdown and persistent existing samples.
-- [ ] Follow [quickstart.md](quickstart.md), collect/freeze the real 20,000-article corpus, and validate all graph/source invariants. Fixture-only tests do not count as delivery of the real corpus.
+- [ ] Follow [quickstart.md](quickstart.md), report the three pilot stages and stop for the user's production decision. Only after that decision and resolution of critical defects, collect/freeze the real 20,000-article corpus and validate all graph/source invariants. Fixture-only tests or completed pilots do not count as delivery of the real corpus.
 - [ ] Run locked frontend build and applicable backend/browser tests, transfer the package to the second Windows installation, and record measured local startup/query performance and all remaining external data failures.
 - [ ] Publish implementation validation evidence separately from human benchmark completion; do not claim 2,000 verified claims merely because the software passes.
 
@@ -396,5 +449,5 @@ Implement dependent milestones in order; each carries one coherent reviewable de
 - Historical templates, moved titles, and item associations are explicit acquisition/extraction failure classes. Do not repair them with live data. The conservative extractor may require more than 80,000 candidates; report actual feasibility before production freeze.
 - Rule-based factual/comparison/shortcut signals estimate potential. Human Valid 2-hop Yield and benchmark verification remain external research responsibilities.
 - Record performance observations before tuning defaults. Rule/config changes require a new compatible-design run as specified; runtime retry timing is not a content-selection input.
-- No additional approval flow, semantic review UI, quota enforcement, or minimum-two-document validation is introduced.
+- No additional annotation approval flow, semantic review UI, quota enforcement, or minimum-two-document validation is introduced. The separate production collection gate requires the user's decision after pilot reports; it does not change annotation or external NEI review.
 - Plan outputs are documents only. Next step: generate dependency-ordered `tasks.md` from this plan when requested; application implementation has not started.

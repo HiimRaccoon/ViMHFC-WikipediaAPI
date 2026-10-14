@@ -32,20 +32,34 @@ Expected: meaningful tests pass, including historical cutoffs/templates/identity
 python -m vimfc pipeline create --snapshot 2026-10-14T00:00:00Z --config configs/pipeline.json
 ```
 
-The timestamp is an example, not an automatic source snapshot choice. Use the intended UTC cutoff. Record the returned run UUID, then run:
+The timestamp is an example, not an automatic source snapshot choice. Use the intended UTC cutoff. Record the returned run UUID. First run the three bounded pilot stages, rather than production collection:
 
 ```powershell
-python -m vimfc pipeline run --run <run-id>
+python -m vimfc pipeline pilot --run <run-id> --candidates 100
+python -m vimfc pipeline pilot --run <run-id> --candidates 1000
+python -m vimfc pipeline report --run <run-id> --pilot-size 1000
+python -m vimfc pipeline pilot --run <run-id> --candidates 10000
+python -m vimfc pipeline report --run <run-id> --pilot-size 10000
 python -m vimfc pipeline status --run <run-id>
 ```
 
-Expected: the initial target is 80,000 unique candidates; historical revisions and dependency metadata respect the cutoff; lead extraction and link provenance share one boundary. Counts/speed/cache reuse/ETA appear, with unresolved work and source errors explicit.
+Expected: each pilot stops at its cohort boundary under the fixed snapshot. The 1,000-candidate report contains per-stage timing/throughput, API requests, cache hit and retry/error rates, CPU/RAM/disk usage and a qualified ETA for 80,000. The 10,000-candidate report adds scaling/stability, checkpoint/resume and candidate-pair assessment. Every pilot audits successful/unresolved extraction, frequent failing templates and impacts on lead completeness, sentence IDs and lead-only graph. These commands are documentation for future implementation, not instructions to run a pilot during this planning update.
 
-Interrupt and run the same command again. Completed valid work must be reused and records must not duplicate. If eligible supply remains short, extend without lowering quality:
+Interrupt and resume the same bounded pilot to check reuse and duplicate prevention. Unsupported common templates require tested historical-safe formatters, without live expansion or factual-content removal. Rule/version changes require a new run with compatible raw reuse and revalidation of affected stages/reports; use the same snapshot for comparisons.
+
+**Stop after the reports and present them to the user.** Resolve critical defects and obtain the user's decision before production. Pilots do not constitute a completed 20,000-article corpus. Do not automatically execute the production example below:
+
+```powershell
+python -m vimfc pipeline run --run <run-id> --production --pilot-report <reviewed-final-pilot-report>
+```
+
+Only after that decision, production targets the initial 80,000 candidates with the validated rule versions; historical revisions and graph extraction retain their snapshot guarantees.
+
+Interrupt and resume authorized production with the same run/report identity. Completed valid work must be reused and records must not duplicate. If eligible supply remains short, extend without lowering quality:
 
 ```powershell
 python -m vimfc pipeline extend --run <run-id> --additional 10000
-python -m vimfc pipeline run --run <run-id>
+python -m vimfc pipeline run --run <run-id> --production --pilot-report <reviewed-final-pilot-report>
 python -m vimfc pipeline report --run <run-id>
 ```
 

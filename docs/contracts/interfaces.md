@@ -69,19 +69,24 @@ Commands below are proposed interfaces, available after installation from the wo
 | Command | Behavior |
 | --- | --- |
 | `pipeline create --snapshot <UTC> --config configs/pipeline.json` | Create UUID run; archive config and versions; print run_id |
-| `pipeline run --run <run_id>` | Collect/process initial target and derived stages; automatically resume compatible stored progress |
+| `pipeline pilot --run <run_id> --candidates <100\|1000\|10000>` | Process only the archived bounded pilot cohort, resume compatible work, emit performance/template audit reports and stop; no automatic production escalation |
+| `pipeline run --run <run_id> --production --pilot-report <reviewed-report>` | Deliberate invocation only after the user's decision and critical-defect resolution; record matching reviewed report/run/config identity, then collect/process the production target and resume compatible progress |
 | `pipeline extend --run <run_id> --additional 10000` | Extend the same-snapshot manifest without changing its quality/rule versions |
 | `pipeline status --run <run_id>` | Show stage counts, failures, cache reuse, speed and ETA |
 | `pipeline retry --run <run_id>` | Retry eligible failed/unresolved source work with bounded policy and unchanged snapshot |
 | `pipeline create --snapshot <UTC> --config <new-config> --reuse-run <old-run>` | New run identity; reuse only matching raw/stage dependency results; preserve old run |
-| `pipeline report --run <run_id> [--assessment <path>]` | Corpus metrics; optionally ingest external human reviewed/valid counts, otherwise yield unassessed |
+| `pipeline report --run <run_id> [--pilot-size <100\|1000\|10000>] [--assessment <path>]` | Corpus or bounded-pilot metrics/template-impact report; optional external human reviewed/valid counts, otherwise yield unassessed |
 | `pipeline freeze --run <run_id> --output data/corpora` | Enforce exactly 20,000 eligible selected articles and all integrity checks; publish a new immutable version package |
 | `corpus verify --corpus <package-directory>` | Full package hash, count, revision/provenance, sentences and graph validation; nonzero exit on failure |
 | `corpus export --corpus <package-directory> --output <directory>` | Independent complete corpus.jsonl, graph.jsonl and manifest |
 | `sessions list --annotations data/annotations.sqlite` | List persisted session UUIDs, corpus versions, creation timestamps and successful counts |
 | `samples export --session <UUID> --annotations data/annotations.sqlite --output <file>` | Export exactly that historical/current session with the same serializer as HTTP |
 
-`pipeline run` keeps progress if interrupted. A changed fingerprint returns a nonzero incompatibility error and instructions to create a new run; it does not silently repair the existing run. Freeze never overwrites an existing package. Commands must report insufficient candidate supply rather than loop forever when discovery sources are exhausted.
+`pipeline pilot` requires the staged 100 -> 1,000 -> 10,000 progression and leaves production stopped. Pilot-size bounds are execution controls on archived cohorts, not changes to the fixed snapshot or permission to freeze fewer than 20,000 articles. Reports include the performance and extraction fields specified in [plans.md](../plans.md#b-pilot-performance-benchmark). Finishing a pilot or generating a report does not authorize production.
+
+The production command must be deliberately invoked only after the user reviews the results and decides to continue. It rejects missing/stale reports, mismatched rule/run identities or known critical defects; the command/record is not an automatic substitute for the user's decision. If extraction rules change, create a new run, reuse compatible raw data and regenerate the affected stage results and required reports before production. This is a builder safeguard, not an annotation review workflow.
+
+`pipeline run` keeps progress if interrupted after authorized production starts. Retry/extend commands must respect pilot bounds and cannot initiate unapproved production. A changed fingerprint returns a nonzero incompatibility error and instructions to create a new run; it does not silently repair the existing run. Freeze never overwrites an existing package. Commands must report insufficient candidate supply rather than loop forever when discovery sources are exhausted.
 
 Use exit 0 for success, 2 for invalid arguments/configuration, 3 for incompatible checkpoint, 4 for insufficient eligible supply/freeze validation failure, and 1 for operational failure. Diagnostic details distinguish retryable source errors from rejected candidates. Export commands write temporary output and publish only after successful completion.
 
