@@ -106,6 +106,18 @@ class ClassificationResult:
 
 
 @dataclass
+class PrimaryFirstResult(ClassificationResult):
+    primary_status: str = 'unresolved'
+    primary_provenance: list[dict] = field(default_factory=list)
+    primary_candidates: list[dict] = field(default_factory=list)
+    primary_decision: str | None = None
+    subtype_status: str = 'not_attempted'
+    subtype_search_status: str = 'not_run'
+    subtype_provenance: list[dict] = field(default_factory=list)
+    policy_version: str = 'primary-first-1'
+
+
+@dataclass
 class PairManifest:
     pairs: list[dict]
     omitted: dict

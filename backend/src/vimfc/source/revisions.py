@@ -56,32 +56,50 @@ class RevisionSource:
         self.store.db.execute('DELETE FROM source_failures WHERE site=? AND identity=? AND snapshot=? AND operation=?',(site,identity,snapshot,'select'))
         return ref
 
-    def fetch_revisions(self, site, refs):
+    def fetch_revisions(self, site, refs, *, recover_missing=False):
         outputs, missing = {},[]
         for ref in refs:
             if ref.site != site or not at_or_before(ref.revision_timestamp,ref.snapshot):
-                raise SourceUnavailable('Revision source/cutoff mismatch')
+                raise SourceUnavailable('Revision source/cutoff mismatch',code='invalid_historical_cache' if recover_missing else 'source_unavailable',details={'qid':ref.identity,'revision_id':ref.revision_id})
             self.cache_lookups += 1
             row = self.store.db.execute('SELECT record_json FROM source_revisions WHERE site=? AND revision_id=?',(site,ref.revision_id)).fetchone()
             if row is None:
                 # Blob publication can precede its SQLite reference when a
                 # process stops. Discover and validate that durable orphan.
-                orphans=self.cache.find(site,ref.revision_id)
+                try:orphans=self.cache.find(site,ref.revision_id)
+                except (ValueError,TypeError,KeyError,OSError) as error:
+                    if recover_missing:raise SourceUnavailable('Invalid orphaned raw artifact',code='invalid_historical_cache',details={'qid':ref.identity,'revision_id':ref.revision_id}) from error
+                    raise
                 if len(orphans)>1:
-                    raise SourceUnavailable('Conflicting raw objects for one revision')
+                    raise SourceUnavailable('Conflicting raw objects for one revision',code='invalid_historical_cache' if recover_missing else 'source_unavailable',details={'qid':ref.identity,'revision_id':ref.revision_id})
                 if orphans:
                     cache_ref,raw=orphans[0]
-                    encoded=raw['content'].encode('utf-8')
-                    if raw['page_id']!=ref.page_id or raw['timestamp']!=ref.revision_timestamp or hashlib.sha256(encoded).hexdigest()!=raw['local_sha256'] or hashlib.sha1(encoded).hexdigest()!=raw['source_sha1']:
-                        raise SourceUnavailable('Orphaned raw revision identity/hash mismatch')
+                    try:
+                        encoded=raw['content'].encode('utf-8')
+                        if raw['page_id']!=ref.page_id or raw['timestamp']!=ref.revision_timestamp or hashlib.sha256(encoded).hexdigest()!=raw['local_sha256'] or hashlib.sha1(encoded).hexdigest()!=raw['source_sha1']:
+                            raise ValueError('Orphaned raw revision identity/hash mismatch')
+                    except (ValueError,TypeError,KeyError,AttributeError) as error:
+                        raise SourceUnavailable('Orphaned raw revision identity/hash mismatch',code='invalid_historical_cache' if recover_missing else 'source_unavailable',details={'qid':ref.identity,'revision_id':ref.revision_id}) from error
                     self.store.db.execute('INSERT OR IGNORE INTO source_revisions VALUES (?,?,?)',(site,ref.revision_id,canonical({'cache_ref':cache_ref})))
                     row=(canonical({'cache_ref':cache_ref}),)
             if row:
-                value = json.loads(row[0])
-                raw = self.cache.get(value['cache_ref'])
-                if raw['page_id'] != ref.page_id or raw['timestamp'] != ref.revision_timestamp:
-                    raise SourceUnavailable('Cached revision identity mismatch')
-                outputs[ref.revision_id] = RawRevision(ref,raw['content'],raw['content_model'],raw['source_sha1'],raw['local_sha256'],value['cache_ref'])
+                try:
+                    value = json.loads(row[0])
+                    raw = self.cache.get(value['cache_ref'])
+                    cached_identity=(raw['page_id'],raw['timestamp'])
+                    cached_output=RawRevision(ref,raw['content'],raw['content_model'],raw['source_sha1'],raw['local_sha256'],value['cache_ref'])
+                except (ValueError,TypeError,KeyError,OSError) as error:
+                    # A pinned manifest can restore an absent physical object by
+                    # exact revision ID. Corrupt existing objects are not bypassed.
+                    if recover_missing and isinstance(error.__cause__,FileNotFoundError):
+                        self._cached_failure(site,str(ref.revision_id),ref.snapshot,'content')
+                        missing.append(ref)
+                        continue
+                    if recover_missing:raise SourceUnavailable('Invalid registered raw artifact',code='invalid_historical_cache',details={'qid':ref.identity,'revision_id':ref.revision_id}) from error
+                    raise
+                if cached_identity != (ref.page_id,ref.revision_timestamp):
+                    raise SourceUnavailable('Cached revision identity mismatch',code='invalid_historical_cache' if recover_missing else 'source_unavailable',details={'qid':ref.identity,'revision_id':ref.revision_id})
+                outputs[ref.revision_id] = cached_output
                 self.cache_hits += 1
             else:
                 self._cached_failure(site,str(ref.revision_id),ref.snapshot,'content')
@@ -101,6 +119,7 @@ class RevisionSource:
         try:
             payload = self.client.query(site,{'action':'query','prop':'revisions','revids':'|'.join(str(r.revision_id) for r in refs),'rvprop':'ids|timestamp|content|contentmodel|sha1','rvslots':'main'})
         except SourceUnavailable as error:
+            error.details.setdefault('requested_revision_ids',[r.revision_id for r in refs])
             if len(refs)>1 and any(k in str(error) for k in ('413','414','toomanyvalues','response')):
                 middle = len(refs)//2
                 self._fetch_batch(site,refs[:middle],outputs)

@@ -1,4 +1,11 @@
 from vimfc.pipeline.classify import classify
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def legacy_classifier_rules(config):
+    """This module pins the pre-Primary-First pure graph classifier contract."""
+    config['classification'].update(version='qid-4',dependency_policy={'version':'bounded-bfs-1','max_depth':12,'max_nodes':2048})
 
 SNAP='2026-10-14T00:00:00Z'
 

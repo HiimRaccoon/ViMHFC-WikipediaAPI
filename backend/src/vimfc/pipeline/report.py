@@ -88,6 +88,7 @@ def classification_audit(records,cohort_size,rules):
             continue
         items=cls.get('items',{})
         articles.append({'page_id':record['page_id'],'title':record.get('title'),'outcome':cls['outcome'],'reason':cls.get('reason'),
+            **{k:cls.get(k) for k in ('primary_status','primary_decision','primary_provenance','primary_candidates','subtype_status','subtype_search_status','subtype_provenance','policy_version','manifest_id')},
             'retryable':cls.get('retryable',False),'retry_at':cls.get('retry_at'),'error_code':cls.get('error_code'),'error_details':cls.get('error_details',{}),
             'primary_entity_type':cls.get('primary_entity_type'),'subtypes':cls.get('subtypes',[]),'provenance':cls.get('provenance',[]),
             'diagnostics':cls.get('diagnostics',[]),'configured_roots_present':sorted(set(items)&set(rules['roots'])),

@@ -1,0 +1,23 @@
+{
+  "actual_runs": 3,
+  "new_actual_runs": 0,
+  "historical_tables_checked": {
+    "b0243673-5f0b-4ac6-b8b3-0ca7aa74ccc6": 13,
+    "9c3ed5a4-f161-454c-8a3c-71fe69ed6c1e": 13,
+    "0b8c25da-3bf5-4386-856d-d6b3b5dc46bf": 13
+  },
+  "shared_tables_checked": [
+    "source_revisions",
+    "snapshot_revision_refs",
+    "identity_resolutions",
+    "source_failures",
+    "api_cooldowns",
+    "dependency_manifests"
+  ],
+  "historical_files_unchanged": 246,
+  "compressed_raw_files_unchanged": 1477,
+  "taxonomy_precedence_bounds_unchanged": true,
+  "lead3_ranking_review_sha_unchanged": true,
+  "database_stat_unchanged_during_verification": true,
+  "network_requests": 0
+}

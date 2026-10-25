@@ -12,6 +12,9 @@ from tests.unit.test_classify import item
 
 
 def test_historical_provider_wires_all_stages_and_persists_provenance(tmp_path,config):
+    # Archived provider contract. qid-4 has its own real-source manifest tests.
+    config['classification'].pop('dependency_policy',None)
+    config['classification'].update(version='qid-3',cached_closure_completion=True)
     snapshot='2026-10-14T00:00:00Z'
     raw=Path('tests/fixtures/lead.wiki').read_text(encoding='utf-8')
     class Identities:

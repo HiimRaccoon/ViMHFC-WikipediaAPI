@@ -32,6 +32,14 @@ def article(page_id=1, group='Person', subtype='Q901', quality=None, links=()):
         'extraction':{'outcome':'completed','extraction_version':fixture_config()['extraction']['version'],'full_lead':paragraphs[0],'paragraphs':paragraphs,'sentences':sentences,'links':occurrences,'diagnostics':[],
                       'stats':{'sentence_count':2,'paragraph_count':1,'lead_tokens':len(paragraphs[0].split()),'lead_characters':len(paragraphs[0]),'provisional':False}},
         'classification':classification}
+    if fixture_config()['classification'].get('dependency_policy'):
+        from vimfc.pipeline.dependencies import make_manifest,classify_manifest
+        identity={'site':'viwiki','page_id':page_id,'title':result['title'],'revision_id':result['revision_id'],
+            'revision_timestamp':result['revision_timestamp'],'content_hash':result['raw_hash']}
+        manifest=make_manifest(identity,qid,lambda q:items[q],fixture_config()['classification'],result['snapshot'])
+        classification={**asdict(classify_manifest(manifest,items,fixture_config()['classification'])),'items':items,
+            'manifest_id':manifest['manifest_id'],'dependency_manifest':manifest}
+        result['classification']=classification
     result['quality']=assess_quality(result['extraction'],classification,[],fixture_config()['extraction'])
     if quality is not None:
         result['quality']['score']=quality

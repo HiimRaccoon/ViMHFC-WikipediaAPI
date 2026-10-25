@@ -1,7 +1,7 @@
 # Data Model: Corpus Builder and Annotation
 
 **Plan:** [plans.md](plans.md)  
-**Status:** Proposed implementation schema, not applied migrations.
+**Status:** Builder classification below reflects implemented qid-5; existing corpus/annotation schema and legacy records remain compatible. No actual-data migration is performed by the offline implementation task.
 
 ## Shared Conventions
 
@@ -10,7 +10,25 @@
 - Canonical config serialization plus SHA-256 yields config/stage fingerprints; raw source hashes and extraction/content hashes are stored separately.
 - Page identity is canonical `(wiki, page_id)`; one frozen corpus has one selected revision per article. A sentence key is `(corpus_version, page_id, revision_id, sent_id)`.
 - Evidence text is exactly the stored normalized sentence. Browser-supplied source text is not authoritative.
-- `primary_entity_type` is one of the eight agreed groups. Subtypes have canonical identity and a display name; one article may have several supported subtypes.
+- `primary_entity_type` is one of the eight agreed groups and is required for eligibility. Subtypes are optional, with canonical identity, display name and positive historical paths; one article may have several or none. Optional search incompleteness is distinct from unresolved primary.
+
+### Versioned classification JSON
+
+Legacy qid-1/2/3/4 retain `outcome`, `primary_entity_type`, `subtypes`, `provenance`, `reason`, `diagnostics` and their archived rules. qid-5 uses `PrimaryFirstResult`, extending these fields without adding fields to the legacy dataclass:
+
+| Field | Contract |
+|---|---|
+| `primary_status` | classified / unclassified / unresolved |
+| `primary_provenance`, `primary_candidates` | Historical P31/P279 paths and proven candidate groups |
+| `primary_decision` | closed_primary_graph / precedence_dominates_open_branches / primary_ambiguity / primary_dependency_missing / historical_sitelink_mismatch / no_supported_rule |
+| `subtype_status` | supported / undetermined_in_policy / incomplete / no_configured_subtype_found / not_attempted |
+| `subtype_search_status` | complete / policy_limited / dependency_missing / not_run; supported subtype does not imply complete search |
+| `subtype_provenance` | Positive subtype paths; Person may include P106/P279 |
+| `outcome` | completed iff primary classified; unclassified only with closed unsupported primary graph; unresolved otherwise |
+| `policy_version`, `manifest_id` | primary-first-1 and immutable logical input identity |
+| `items`, `dependency_manifest` | Compact replay evidence and self-contained manifest; original revision/content/entity hashes and projection hashes retained |
+
+`items` uses `evidence_projection=classification-evidence-1` for qid-5: id, historical viwiki sitelink and P31/P279/P106 claims plus revision/model/raw hash and `source_entity_hash`. Full raw objects remain in immutable source storage. Projection hash is pinned in manifest, full raw is validated before projection on materialization, and standalone package validation replays from projection. Zero supported subtypes is valid for a proven primary; do not synthesize an article_subtypes row or Comparison block from primary alone.
 
 ## 1. Builder Database: `data/pipeline.sqlite`
 
@@ -57,7 +75,7 @@ Index candidates by `(run_id, discovery_order)`, stage results by `(run_id, stag
 | `entity_targets` | PK target_key; wiki/page identity where proven, canonical snapshot title, resolution provenance | Includes in-corpus and outside-corpus lead link targets |
 | `lead_entity_links` | Source article, target_key, source sentence/paragraph, original link text/target/fragment, revision/extraction provenance | All retained real prose lead-link occurrences |
 | `internal_edges` | PK `(source_page_id, target_page_id)`; both FKs to articles; source link provenance reference | Deduplicated directed graph derived solely from retained lead links |
-| `classification_provenance` | Article, historical QID/revisions/property paths and embedded relevant archived metadata; optional raw-cache hashes for builder replay | Explain entity type/subtype assignment without depending on paths on the builder's machine |
+| `classification_provenance` | Article, primary/subtype statuses/paths, immutable dependency manifest and compact evidence with source/projection hashes; legacy full metadata remains readable | Standalone primary/subtype replay without builder-machine paths; optional search incompleteness retained |
 | `quality_report` | Versioned report fields and counts, assessment status/reference | Connectivity, pair/subtype/group coverage and external yield summary |
 
 Full Article Hyperlinks, if retained, are a separate audit table or builder artifact. They are never joined into operational internal edges unless an independently retained lead-link occurrence proves the same link belongs to eligible prose. Comparison pairs remain builder selection metadata, not hyperlink edges.

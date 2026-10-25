@@ -35,6 +35,8 @@ def test_retry_after_deadline_survives_nested_stage_failure(tmp_path):
 
 
 def test_pending_classification_recovers_upserts_and_defers_ineligible_links(tmp_path,config):
+    config['classification'].pop('dependency_policy',None)
+    config['classification'].update(version='qid-3',cached_closure_completion=True)
     from vimfc.domain import RawRevision,SourceRevisionRef
     from vimfc.pipeline.classify import classify
     a=article(1)

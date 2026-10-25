@@ -1,6 +1,7 @@
 {
-  "version": "qid-3", "max_depth": 12,
-  "cached_closure_completion": true, "max_cached_nodes": 2048, "terminal_unresolved": true,
+  "version": "qid-5", "max_depth": 12,
+  "cached_closure_completion": false, "max_cached_nodes": 2048, "terminal_unresolved": true,
+  "dependency_policy": {"version":"primary-first-1","max_depth":12,"max_nodes":2048},
   "stop_at_configured_roots": true,
   "precedence": ["Landmark / Facility", "Award / Competition", "Organization", "Location", "Creative Work", "Person", "Science / Technology", "Event"],
   "roots": {

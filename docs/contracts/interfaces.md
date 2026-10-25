@@ -1,13 +1,15 @@
 # API and Command Contracts
 
 **Plan:** [../plans.md](../plans.md)  
-**Status:** Design contracts; endpoints and commands are not implemented yet.
+**Status:** Implemented builder classification contracts reflect qid-5; legacy frozen packages remain readable. Other research/annotation boundaries are unchanged.
 
 ## Local HTTP Interface
 
 Ordinary startup serves the built frontend and API on `http://127.0.0.1:8000`. Development may use Vite on port 5173 with a configured local API proxy. No source collection endpoint is exposed by the annotation API.
 
 Responses use UTF-8 JSON; typed errors have `{ "error": { "code": "...", "message": "Vietnamese explanation", "details": {} } }`. Unknown request fields are rejected where they could change annotation/source semantics.
+
+Frozen article classification requires a proven primary group; `subtypes: []` is valid. qid-5 adds explicit primary/subtype status/provenance, policy and manifest identity to the existing classification JSON. Consumers must not treat incomplete optional search as unresolved primary. Same Entity Type/Comparison return only supported subtype matches and never broaden to primary; primary-only articles remain eligible for Bridge/Shared Entity/Random Article if other rules pass. Annotation evidence/label/hop/export schema is unchanged. See [data model](../data-model.md#versioned-classification-json).
 
 | Method and route | Request / result |
 | --- | --- |
@@ -69,6 +71,7 @@ Commands below are proposed interfaces, available after installation from the wo
 | Command | Behavior |
 | --- | --- |
 | `pipeline create --snapshot <UTC> --config configs/pipeline.json` | Create UUID run; archive config and versions; print run_id |
+| `pipeline prepare-replay --database <db> --source-report <metrics.json> --config configs/pipeline.json --output-dir <new-bundle>` | Validate archived report/run/snapshot; inherit cohort/discovery/operator settings and use current classification/extraction rules, without API calls or run creation |
 | `pipeline pilot --run <run_id> --candidates <100\|1000\|10000>` | Process only the archived bounded pilot cohort, resume compatible work, emit performance/template audit reports and stop; no automatic production escalation |
 | `pipeline run --run <run_id> --production --pilot-report <reviewed-report>` | Deliberate invocation only after the user's decision and critical-defect resolution; record matching reviewed report/run/config identity, then collect/process the production target and resume compatible progress |
 | `pipeline extend --run <run_id> --additional 10000` | Extend the same-snapshot manifest without changing its quality/rule versions |
@@ -83,6 +86,8 @@ Commands below are proposed interfaces, available after installation from the wo
 | `samples export --session <UUID> --annotations data/annotations.sqlite --output <file>` | Export exactly that historical/current session with the same serializer as HTTP |
 
 `pipeline pilot` requires the staged 100 -> 1,000 -> 10,000 progression and leaves production stopped. Pilot-size bounds are execution controls on archived cohorts, not changes to the fixed snapshot or permission to freeze fewer than 20,000 articles. Reports include the performance and extraction fields specified in [plans.md](../plans.md#b-pilot-performance-benchmark). Finishing a pilot or generating a report does not authorize production.
+
+Each bounded invocation emits metrics/performance/template/classification/pair audits, `dependency-manifest-audit.json`, `fingerprint-audit.json`, `subtype-audit.json`, content-addressed `manifests/`, cohort/summary and immutable `attempts/<id>/` copies. Classification reports distinguish primary status/decision/provenance and optional subtype status/search/provenance. Manifest-wide incomplete can coexist with completed primary classification. `report --output <file>` exports locally without source access; `--pilot-size` retrieves a completed archived pilot report. Missing declared physical artifacts are role-tagged input errors; transient required source errors retain retry deadlines. Optional acquisition frontiers remain pinned within a run and do not auto-refresh with cache warmth.
 
 The production command must be deliberately invoked only after the user reviews the results and decides to continue. It rejects missing/stale reports, mismatched rule/run identities or known critical defects; the command/record is not an automatic substitute for the user's decision. If extraction rules change, create a new run, reuse compatible raw data and regenerate the affected stage results and required reports before production. This is a builder safeguard, not an annotation review workflow.
 

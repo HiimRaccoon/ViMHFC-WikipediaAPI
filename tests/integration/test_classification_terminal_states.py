@@ -25,6 +25,9 @@ def test_new_run_reevaluates_unresolved_derived_results_but_reuses_complete_proo
 
 
 def test_permanent_source_dependency_failure_is_terminal_unresolved_in_new_rules(tmp_path,config):
+    # Preserve the qid-3 terminal-state regression without reinterpreting it.
+    config['classification'].pop('dependency_policy',None)
+    config['classification'].update(version='qid-3',cached_closure_completion=True)
     a=article(1)
     config['classification']['terminal_unresolved']=True
     ref=SourceRevisionRef('viwiki','1',1,a['title'],1001,'2026-10-13T00:00:00Z','2026-10-14T00:00:00Z')

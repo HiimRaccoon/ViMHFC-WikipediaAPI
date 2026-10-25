@@ -5,7 +5,8 @@ from tests.unit.test_classify import item,SNAP
 
 
 def rules(config,**extra):
-    return {**deepcopy(config['classification']),'cached_closure_completion':True,'terminal_unresolved':True,'max_cached_nodes':100,'max_depth':1,**extra}
+    legacy=deepcopy(config['classification']);legacy.pop('dependency_policy',None)
+    return {**legacy,'version':'qid-3','cached_closure_completion':True,'terminal_unresolved':True,'max_cached_nodes':100,'max_depth':1,**extra}
 
 
 def test_closed_cached_ancestors_beyond_network_depth_resolve_all_sibling_subtypes(config):

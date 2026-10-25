@@ -12,6 +12,13 @@ from vimfc.pipeline.classify import classify
 from tests.unit.test_classify import item,SNAP
 
 
+@pytest.fixture(autouse=True)
+def legacy_qid3_config(config):
+    """This file preserves qid-3's archived cache-completion behavior."""
+    config['classification'].pop('dependency_policy',None)
+    config['classification'].update(version='qid-3',cached_closure_completion=True)
+
+
 def seed(store,cache,qid,value,snapshot=SNAP):
     content=canonical(value['entity'])
     ref=SourceRevisionRef('wikidata',qid,int(qid[1:])+1000,qid,value['revision_id'],value['revision_timestamp'],snapshot)

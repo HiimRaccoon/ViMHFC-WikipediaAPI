@@ -13,6 +13,9 @@ def fixture():
 
 @pytest.mark.parametrize('index',[0,1,2])
 def test_real_archived_deep_graphs_close_or_explain_missing_frontier(config,index):
+    # These expectations describe the qid-3 offline repair, never qid-4.
+    config['classification'].pop('dependency_policy',None)
+    config['classification'].update(version='qid-3',cached_closure_completion=True)
     data=fixture();case=data['cases'][index]
     result=classify(case['title'],case['qid'],data['items'],config['classification'],data['snapshot'])
     assert result.outcome==case['expected_outcome']

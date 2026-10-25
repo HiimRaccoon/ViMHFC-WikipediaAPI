@@ -1,4 +1,10 @@
 from vimfc.pipeline.classify import classify
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def legacy_repair_rules(config):
+    config['classification'].update(version='qid-4',dependency_policy={'version':'bounded-bfs-1','max_depth':12,'max_nodes':2048})
 from tests.unit.test_classify import item,SNAP
 
 

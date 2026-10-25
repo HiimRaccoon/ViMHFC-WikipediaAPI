@@ -82,7 +82,8 @@ def main(argv=None):
                 rows=store.db.execute('SELECT stage,status,count(*) AS count FROM stage_results WHERE run_id=? GROUP BY stage,status',(args.run,)).fetchall()
                 progress=store.db.execute("SELECT record_json FROM run_events WHERE run_id=? AND stage='progress' ORDER BY event_id DESC LIMIT 1",(args.run,)).fetchone()
                 _print({'run_id':args.run,'snapshot':run['snapshot'],'config_hash':run['config_hash'],'status':run['status'],'candidate_count':len(store.candidates(args.run)),
-                    'stage_counts':[dict(r) for r in rows],'production_authorized':bool(run['production_report']),'progress':json.loads(progress[0]) if progress else {'speed_per_minute':None,'eta_seconds':None}})
+                    'stage_counts':[dict(r) for r in rows],'dependency_manifest_count':store.db.execute('SELECT count(*) FROM article_manifests WHERE run_id=?',(args.run,)).fetchone()[0],
+                    'production_authorized':bool(run['production_report']),'progress':json.loads(progress[0]) if progress else {'speed_per_minute':None,'eta_seconds':None}})
                 return 0
             if args.action!='report':
                 _check_config_source(store,args.run)
@@ -108,6 +109,10 @@ def main(argv=None):
                     report={'run_id':args.run,'corpus':corpus_report(articles,pairs,run['config']['quotas'],assessment),'template_audit':template_audit(records,len(store.candidates(args.run))),
                         'classification_audit':classification_audit(records,len(store.candidates(args.run)),run['config']['classification']),
                         'pair_audit':pair_generation_audit(records,pairs,run['config']['ranking'])}
+                    from .pipeline.manifest_report import dependency_audits
+                    report['dependency_manifest_audit'],report['fingerprint_audit']=dependency_audits(records,store,run)
+                    from .pipeline.manifest_report import subtype_audit
+                    report['subtype_audit']=subtype_audit(records)
                 if args.output:
                     path=Path(args.output)
                     path.parent.mkdir(parents=True,exist_ok=True)

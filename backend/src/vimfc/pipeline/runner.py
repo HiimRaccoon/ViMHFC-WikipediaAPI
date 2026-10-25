@@ -30,6 +30,8 @@ class StageExecutor:
         if reuse:
             result=self.store.result(reuse,identity,stage,dep)
             incomplete=isinstance(result,dict) and (result.get('outcome')=='unresolved' or result.get('classification',{}).get('outcome')=='unresolved')
+            if stage=='acquire_manifest' and isinstance(result,dict) and result.get('format')=='vimfc-primary-first-1':
+                incomplete=incomplete or any(f.get('source_code') for f in result.get('frontier',[]))
             if result is not None and not incomplete:
                 self.store.complete(self.run_id,identity,stage,dep,result)
                 metric['reused']+=1
@@ -155,6 +157,11 @@ class Builder:
         output=[]
         for candidate in self.store.candidates(self.run_id,size):
             deps={'snapshot':self.run['snapshot'],'config':self.run['config_hash'],'candidate':candidate}
+            if self.config['classification'].get('dependency_policy'):
+                row=self.store.db.execute('SELECT m.record_json FROM article_manifests b JOIN dependency_manifests m USING(manifest_id) WHERE b.run_id=? AND b.page_id=?',(self.run_id,candidate['page_id'])).fetchone()
+                if not row:continue
+                manifest=json.loads(row[0])
+                deps['input']={'manifest_id':manifest['manifest_id'],'article_hash':digest(manifest['article'])}
             result=self.store.result(self.run_id,candidate['page_id'],'process',digest(deps))
             if result:
                 output.append(result)
@@ -182,8 +189,13 @@ class Builder:
                 self.progress({'event':'cohort_ready','run_id':self.run_id,'candidates':len(candidates),'snapshot':self.run['snapshot']})
             for candidate in candidates:
                 deps={'snapshot':self.run['snapshot'],'config':self.run['config_hash'],'candidate':candidate}
+                prepared={}
                 try:
-                    result=self.executor.execute('process',candidate['page_id'],deps,lambda c=candidate:self.provider.process(c))
+                    if hasattr(self.provider,'process_dependencies'):
+                        prepared=self.provider.process_dependencies(candidate)
+                        if prepared:deps['input']=prepared
+                    result=self.executor.execute('process',candidate['page_id'],deps,
+                        lambda c=candidate:self.provider.process_prepared(c,prepared) if prepared and hasattr(self.provider,'process_prepared') else self.provider.process(c))
                     records.append(result)
                 except SourceUnavailable as error:
                     partial={'page_id':candidate['page_id'],'status':'source_failed','error':str(error),'retryable':error.retryable,'retry_at':error.retry_at,'error_code':error.code,'error_details':error.details}
@@ -194,8 +206,13 @@ class Builder:
                         partial.update({'extraction':json.loads(lead[0]),'revision_id':raw['ref']['revision_id'],'raw_hash':raw['local_sha256']})
                     classification=self.store.db.execute('SELECT record_json FROM classification_results WHERE run_id=? AND page_id=? ORDER BY rowid DESC LIMIT 1',(self.run_id,candidate['page_id'])).fetchone()
                     if classification:
-                        partial['classification']=json.loads(classification[0])
+                        partial['previous_classification' if self.config['classification'].get('dependency_policy') else 'classification']=json.loads(classification[0])
+                    if self.config['classification'].get('dependency_policy'):
+                        binding=self.store.db.execute('SELECT request_hash FROM article_manifests WHERE run_id=? AND page_id=?',(self.run_id,candidate['page_id'])).fetchone()
+                        if binding:partial['dependency_manifest']=self.store.manifest_for(self.run_id,candidate['page_id'],binding[0])
                     records.append(partial)
+                finally:
+                    if hasattr(self.provider,'release_prepared'):self.provider.release_prepared(candidate)
                 self.store.event(self.run_id,'progress',{**progress.observe(time.perf_counter(),len(records)),'cache_reused':self.executor.metrics['process']['reused']})
                 if self.progress:
                     self.progress({'event':'candidate_processed','run_id':self.run_id,'page_id':candidate['page_id'],'processed':len(records),'target':target,
@@ -258,12 +275,26 @@ class Builder:
             'subtype_attribute_compatibility_blocks':dict(Counter(str(p['provenance'][0].get('block')) for p in pairs.pairs if p['kind']=='comparison')),
             'shortcut_risk_pair_count':sum(p['features']['shortcut_risk']>0 for p in pairs.pairs),'lead_bridge_count':sum(p['kind']=='bridge' for p in pairs.pairs),
             'partner_endpoint_coverage':len({p[k] for p in pairs.pairs for k in ('endpoint_a','endpoint_b')})}
+        from .manifest_report import dependency_audits
+        report['dependency_manifest_audit'],report['fingerprint_audit']=dependency_audits(records,self.store,self.run)
+        from .manifest_report import subtype_audit
+        report['subtype_audit']=subtype_audit(records)
         folder=self.reports/self.run_id/str(target)
         folder.mkdir(parents=True,exist_ok=True)
         attempt_folder=folder/'attempts'/report['attempt_id']
         attempt_folder.mkdir(parents=True)
         for filename,value in (('metrics.json',report),('template-audit.json',report['template_audit']),('classification-audit.json',report['classification_audit']),('performance.json',performance),('pair-audit.json',report['pair_audit'])):
             self._atomic(attempt_folder/filename,value)
+        for name in ('dependency_manifest_audit','fingerprint_audit','subtype_audit'):
+            filename=name.replace('_','-')+'.json'
+            self._atomic(folder/filename,report[name])
+            self._atomic(attempt_folder/filename,report[name])
+        for record in records:
+            manifest=record.get('classification',{}).get('dependency_manifest') or record.get('dependency_manifest')
+            if manifest:
+                for parent in (folder,attempt_folder):
+                    (parent/'manifests').mkdir(exist_ok=True)
+                    self._atomic(parent/'manifests'/(manifest['manifest_id']+'.json'),manifest)
         self._atomic(folder/'metrics.json',report)
         self._atomic(folder/'template-audit.json',report['template_audit'])
         self._atomic(folder/'classification-audit.json',report['classification_audit'])

@@ -1,0 +1,45 @@
+{
+  "actual_runs": {
+    "b0243673-5f0b-4ac6-b8b3-0ca7aa74ccc6": {
+      "tables_unchanged": 10,
+      "report_files_unchanged": 6
+    },
+    "9c3ed5a4-f161-454c-8a3c-71fe69ed6c1e": {
+      "tables_unchanged": 10,
+      "report_files_unchanged": 14
+    }
+  },
+  "shared_tables": {
+    "source_revisions": {
+      "rows": 1477,
+      "sha256": "8b450762219896b18299d504bee75f7ee2e1d2f4bd97c9fc8f10898c46b6b84e"
+    },
+    "snapshot_revision_refs": {
+      "rows": 2013,
+      "sha256": "31ea709046932961406bf0e9f067e2793041be8adaadc1603f793a35975387eb"
+    },
+    "identity_resolutions": {
+      "rows": 1197,
+      "sha256": "997453ec235354fd0e7ca48447060f08466db267d96ffa6526ba0b99525923cd"
+    },
+    "source_failures": {
+      "rows": 36,
+      "sha256": "532c32e5ca8ff6fa9e425e8f80eba0351e830820736e62cf7869d44f3eeea400"
+    },
+    "api_cooldowns": {
+      "rows": 0,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    }
+  },
+  "network_requests": 0,
+  "new_actual_runs": 0,
+  "registered_raw_artifacts_validated": 1477,
+  "unchanged_files": {
+    "configs\\extraction_rules.json": "5f9ac9df20e8a09dc705c475820696ed3b8e27150106da8821283684d6f5edbc",
+    "configs\\ranking_rules.json": "29a569e46351ec2512a62271af853ea3930560b690495eeb8d3e6e3479850711",
+    "docs\\specs.md": "a0e6fa3126c90dc33caab0347a7685ae6c4efd87f4bbd236f169f1d1684980c0",
+    "docs\\plans.md": "e40af9e8e9dfd4d3ad62b31c2ac494cc248a182bbcb9c24f152caf6f7d925c65",
+    "REVIEW.md": "8842626d56fce8dd77dcdaf5dd99fbde9904f4ea10d28ea449d8a8caafe02e78"
+  },
+  "taxonomy_precedence_bounds_unchanged": true
+}

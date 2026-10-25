@@ -28,6 +28,8 @@ For this workspace runtime, use `& .\.tools\python312\python.exe -m pytest --bas
 
 ## Builder commands and manual stops
 
+Current builder policy is **Primary-First, Optional-Subtype**, `qid-5` / `pipeline-5`. Historical P31/P279 proves required primary; P106 may support Person subtypes but never primary by itself. Optional subtype incompleteness does not reject a proven primary. Required primary conflicts remain unresolved unless recorded global-precedence dominance proves the decision safe. Depth 12, union budget 2,048, quality thresholds, lead-3, rank-1 and exact 20,000 gate remain unchanged. Immutable role-aware manifests bind input revisions/hashes and compact evidence; cache warmth never expands the semantic graph. Bridge needs no subtype; Comparison/Same Entity Type still require a positively supported shared subtype. See [implementation](reports/verification/primary-first-implementation.md) and [operator handoff](docs/pilot100-replay.md).
+
 Run creation, status and reports are local-only commands. A snapshot is always supplied explicitly:
 
 ```powershell
@@ -50,7 +52,7 @@ The default discovery schedule interleaves category seeds with namespace prefixe
 
 Builder state is `data/pipeline.sqlite`, with compressed hash-verified historical objects under `data/raw`. A frozen transfer package contains standalone `corpus.sqlite` and `manifest.json`; never copy an active WAL database. Each annotator will use their own `annotations.sqlite`. Ordinary annotation must never initiate collection.
 
-`.agents/` is local and ignored. All local DB/sidecars, data/raw/corpus packages, bulk exports, build outputs, environments and raw logs are ignored. Curated verification reports/audits, `reports/pilots/<run>/assessment.md`, and cohort `summary.md`/compact `summary.json` may be committed; detailed telemetry, cohort manifests and raw template audits are builder artifacts. Do not put raw data inside allowlisted summaries. The [review evidence bundle](reports/verification/pilot100-review-evidence.json) preserves selected archived measurements, version identities, checksums and classification transitions for remote review without publishing private contact configuration or the raw cache. Current `qid-3`/`lead-3` cached retrospective results must not be confused with measurements of the round-2 `qid-2`/`lead-2` run.
+`.agents/` is local and ignored. All local DB/sidecars, data/raw/corpus packages, bulk exports, build outputs, environments and raw logs are ignored. Curated verification reports/audits, `reports/pilots/<run>/assessment.md`, and cohort `summary.md`/compact `summary.json` may be committed; detailed telemetry, cohort manifests and raw template audits are builder artifacts. Do not put raw data inside allowlisted summaries. The [review evidence bundle](reports/verification/pilot100-review-evidence.json) preserves selected archived measurements, version identities, checksums and classification transitions for remote review without publishing private contact configuration or the raw cache. Historical `qid-3`/`lead-3` cached retrospective results must not be confused with measurements of the round-2 `qid-2`/`lead-2` run or the current qid-5 policy.
 
 ## Research boundaries
 

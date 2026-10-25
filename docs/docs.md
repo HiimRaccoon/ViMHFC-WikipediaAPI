@@ -61,9 +61,9 @@ Select 20,000 unique feasible articles using these soft allocation targets:
 | Science / Technology | 1,000 |
 | **Total** | **20,000** |
 
-Each article has exactly one `primary_entity_type` for quota accounting. Store specific subtype information, such as Scientist, Footballer, Actor, University, Country, City, Film, or Stadium, for comparison discovery. An article may have multiple supported subtypes.
+Each eligible article has exactly one proven `primary_entity_type` for quota accounting. Under Primary-First, Optional-Subtype, subtypes are optional; record Scientist, Footballer, Actor, University, Country, City, Film or Stadium only with positive historical paths. A proven primary may pass classification while subtype search is incomplete. Empty subtype is not proof that no subtype exists; record search status and completeness.
 
-Classification must have recorded evidence from Wikidata or Wikipedia metadata. Do not guess an entity type when evidence is missing. Resolve overlapping groups through consistent, versioned rules.
+Primary classification uses historical Wikidata P31/P279 at the Fixed Snapshot; direct configured-root identity remains an explicit versioned mapping with a zero-property historical path. P106 alone must not infer Person. Person subtype discovery may additionally use P106/P279. Collect primary candidates deterministically under depth 12 and the 2,048-node union budget; preserve all sibling branches that could change precedence. An open primary branch blocks acceptance unless the proven winner has the first precedence among all configured groups, making every possible remaining candidate dominated. Record decision proof, source revisions/hashes and immutable role-aware manifest. Cache changes acquisition cost, not the frozen logical input. Unresolved optional subtype alone does not block eligibility; unresolved primary does.
 
 Exclude redirect-only, disambiguation, list-only, and unhelpful summaries. Entity type alone is insufficient: prioritize useful factual prose and potential bridge or comparison partners.
 
@@ -100,7 +100,7 @@ Each pipeline run has a fixed `snapshot_timestamp_utc`.
 - Apply the same snapshot timestamp to classification metadata, including P31, P279, and P106 where applicable.
 - Use the latest eligible historical revision and retain its ID, timestamp, raw metadata, and classification basis.
 - Apply this rule to referenced entities used when traversing the classification hierarchy as well.
-- If valid historical metadata cannot be obtained, mark the candidate `unclassified` / `pending`; do not substitute live metadata silently.
+- If required primary historical evidence is missing or conflicting, keep primary unresolved; reserve unclassified for a closed unsupported primary graph. Missing optional evidence records incomplete subtype search without rejecting a proven primary. Never substitute live metadata or infer absent subtype.
 - Wikidata supports classification and corpus construction. It is never gold evidence for benchmark claims.
 
 Store configuration and algorithm versions, classification rules, extraction rules, downloaded source data, and ranking/selection records. Changing the snapshot timestamp requires a new pipeline run.

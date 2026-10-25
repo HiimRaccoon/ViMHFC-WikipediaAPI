@@ -18,6 +18,13 @@ def pair_articles(config):
         qid=f'Q{page+1000}'
         items={qid:item(qid,{'P31':[root]},title),root:item(root)}
         cls=asdict(classify(title,qid,items,config['classification'],SNAP));cls['items']=items
+        if config['classification'].get('dependency_policy'):
+            from vimfc.pipeline.dependencies import make_manifest,classify_manifest
+            identity={'site':'viwiki','page_id':page,'title':title,'revision_id':page+20,
+                'revision_timestamp':'2026-10-13T00:00:00Z','content_hash':'a'*64}
+            dependencies=make_manifest(identity,qid,lambda q:items[q],config['classification'],SNAP)
+            cls={**asdict(classify_manifest(dependencies,items,config['classification'])),'items':items,
+                'manifest_id':dependencies['manifest_id'],'dependency_manifest':dependencies}
         ext=asdict(extract_lead(raw,config['extraction']))
         for link in ext['links']:
             link['target']={'status':'resolved','page_id':2,'title':'Viện B','revision_id':22,'revision_timestamp':'2026-10-13T00:00:00Z','snapshot':SNAP,'raw_hash':'a'*64,'proof':{'kind':'fixture'}}
@@ -45,6 +52,20 @@ def test_prose_link_bridge_and_compatible_comparison_flow_through_real_stages(co
     assert build_pairs(list(reversed(articles)),config['ranking'])==manifest
 
 
+def test_manifest_classification_order_warmup_pairs_and_selection_are_identical(config):
+    from vimfc.pipeline.dependencies import classify_manifest
+    from vimfc.pipeline.select import select_corpus
+    a=pair_articles(config);b=deepcopy(a)
+    for record in reversed(b):
+        cls=record['classification'];warm={**cls['items'],'Q999999':{'bad':'unrelated'}}
+        replay=asdict(classify_manifest(cls['dependency_manifest'],warm,config['classification']))
+        assert all(cls[k]==v for k,v in replay.items())
+        record['quality']=assess_quality(record['extraction'],replay,[],config['extraction'])
+    pa=build_pairs(a,config['ranking']);pb=build_pairs(list(reversed(b)),config['ranking'])
+    assert pa==pb and {p['kind'] for p in pa.pairs}=={'bridge','comparison'}
+    assert select_corpus(a,pa.pairs,config['ranking'],config['quotas'],target=3)==select_corpus(list(reversed(b)),pb.pairs,config['ranking'],config['quotas'],target=3)
+
+
 def test_pairs_exclude_ineligible_endpoints_and_ambiguous_attribute_values(config):
     articles=pair_articles(config)
     articles[1]['quality']['eligible']=False
@@ -59,3 +80,20 @@ def test_comparison_never_falls_back_from_missing_subtype_to_primary_group(confi
     articles[0]['classification']['subtypes']=[]
     articles[2]['classification']['subtypes']=[]
     assert not [p for p in build_pairs(articles,config['ranking']).pairs if p['kind']=='comparison']
+
+
+def test_primary_only_proven_article_can_bridge_but_never_primary_fallback_comparison(config):
+    from vimfc.pipeline.dependencies import make_manifest,classify_manifest
+    articles=pair_articles(config)
+    for a in (articles[0],articles[2]):
+        qid=f'Q{a["page_id"]+1000}'
+        items={qid:item(qid,{'P31':['Q5']},a['title']),'Q5':item('Q5')}
+        identity={'site':'viwiki','page_id':a['page_id'],'title':a['title'],'revision_id':a['page_id']+20,
+            'revision_timestamp':'2026-10-13T00:00:00Z','content_hash':'a'*64}
+        m=make_manifest(identity,qid,lambda q:items[q],config['classification'],SNAP)
+        a['classification']={**asdict(classify_manifest(m,items,config['classification'])),'items':items,'dependency_manifest':m,'manifest_id':m['manifest_id']}
+        a['quality']=assess_quality(a['extraction'],a['classification'],[],config['extraction'])
+        assert a['quality']['eligible'] and a['classification']['subtypes']==[]
+    pairs=build_pairs(articles,config['ranking'])
+    assert [(p['endpoint_a'],p['endpoint_b']) for p in pairs.pairs if p['kind']=='bridge']==[(1,2)]
+    assert not [p for p in pairs.pairs if p['kind']=='comparison']

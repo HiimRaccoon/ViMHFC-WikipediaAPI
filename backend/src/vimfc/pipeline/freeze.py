@@ -33,7 +33,20 @@ def validate_article(article,snapshot,extraction_version,*,rules=None):
             require(ref['qid'] in cls['items'] and cls['items'][ref['qid']]['revision_id']==ref['revision_id'] and at_or_before(ref['revision_timestamp'],snapshot),'unbacked classification path')
         require(proof['root']==proof['path'][-1]['qid'],'classification root does not end its proven path')
     require(rules is not None,'full archived validation rules are required')
-    expected_classification=asdict(classify(article['title'],cls['provenance'][0]['path'][0]['qid'],cls['items'],rules['classification'],snapshot))
+    if rules['classification'].get('dependency_policy'):
+        from .dependencies import verify_manifest,classify_manifest
+        from vimfc.domain import Incompatible,SourceUnavailable
+        manifest=cls.get('dependency_manifest',{})
+        identity={'site':'viwiki','page_id':article['page_id'],'title':article['title'],'revision_id':article['revision_id'],
+            'revision_timestamp':article['revision_timestamp'],'content_hash':article['raw_hash']}
+        try:
+            verify_manifest(manifest,rules['classification'],identity)
+            require(manifest['snapshot']==snapshot and cls.get('manifest_id')==manifest['manifest_id'],'manifest snapshot/identity mismatch')
+            expected_classification=asdict(classify_manifest(manifest,cls['items'],rules['classification']))
+        except (Incompatible,SourceUnavailable,KeyError,ValueError) as error:
+            raise InvalidCorpus(f'Article {article["page_id"]}: dependency manifest does not replay: {error}') from error
+    else:
+        expected_classification=asdict(classify(article['title'],cls['provenance'][0]['path'][0]['qid'],cls['items'],rules['classification'],snapshot))
     require(all(cls.get(k,[] if k=='diagnostics' else None)==v for k,v in expected_classification.items()),'classification does not replay from archived metadata')
     expected_quality=assess_quality(ext,cls,article.get('article_kinds',[]),rules['extraction'])
     require(expected_quality['eligible'] and article['quality']==expected_quality,'quality rules/signals do not replay')

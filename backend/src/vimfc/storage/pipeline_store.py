@@ -32,6 +32,9 @@ class PipelineStore:
         CREATE TABLE IF NOT EXISTS pilot_reports (run_id TEXT NOT NULL,size INTEGER NOT NULL,report_json TEXT NOT NULL,PRIMARY KEY(run_id,size));
         CREATE TABLE IF NOT EXISTS source_failures (site TEXT NOT NULL,identity TEXT NOT NULL,snapshot TEXT NOT NULL,operation TEXT NOT NULL,error_json TEXT NOT NULL,retry_at TEXT,retryable INTEGER NOT NULL,recorded_at TEXT NOT NULL,PRIMARY KEY(site,identity,snapshot,operation));
         CREATE TABLE IF NOT EXISTS api_cooldowns (site TEXT PRIMARY KEY,retry_at TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS dependency_manifests (manifest_id TEXT PRIMARY KEY,record_json TEXT NOT NULL,created_at TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS article_manifests (run_id TEXT NOT NULL REFERENCES pipeline_runs,page_id INTEGER NOT NULL,request_hash TEXT NOT NULL,manifest_id TEXT NOT NULL REFERENCES dependency_manifests,PRIMARY KEY(run_id,page_id));
+        CREATE TABLE IF NOT EXISTS historical_item_hints (run_id TEXT NOT NULL REFERENCES pipeline_runs,page_id INTEGER NOT NULL,article_hash TEXT NOT NULL,qid TEXT NOT NULL,PRIMARY KEY(run_id,page_id));
         PRAGMA user_version=1;
         ''')
         if 'lease_token' not in {r['name'] for r in self.db.execute('PRAGMA table_info(stage_results)')}:
@@ -108,3 +111,38 @@ class PipelineStore:
 
     def event(self, run_id, stage, value):
         self.db.execute('INSERT INTO run_events(run_id,stage,created_at,record_json) VALUES (?,?,?,?)', (run_id,stage,now(),canonical(value)))
+
+    def manifest_for(self,run_id,page_id,request_hash):
+        from vimfc.pipeline.dependencies import verify_manifest
+        row=self.db.execute('SELECT a.request_hash,m.record_json FROM article_manifests a JOIN dependency_manifests m ON m.manifest_id=a.manifest_id WHERE a.run_id=? AND a.page_id=?',(run_id,page_id)).fetchone()
+        if not row: return None
+        if row[0]!=request_hash: raise Incompatible('Frozen dependency input changed; create a new run')
+        try:manifest=json.loads(row[1])
+        except (ValueError,TypeError) as error:raise Incompatible('Dependency manifest JSON is corrupt') from error
+        verify_manifest(manifest)
+        bound=self.db.execute('SELECT manifest_id FROM article_manifests WHERE run_id=? AND page_id=?',(run_id,page_id)).fetchone()[0]
+        if manifest['manifest_id']!=bound: raise Incompatible('Manifest binding checksum mismatch')
+        return manifest
+
+    def publish_manifest(self,run_id,page_id,request_hash,manifest):
+        from vimfc.pipeline.dependencies import verify_manifest
+        verify_manifest(manifest)
+        with self.transaction():
+            previous=self.manifest_for(run_id,page_id,request_hash)
+            if previous is not None and previous!=manifest:
+                raise Incompatible('Cannot replace frozen dependency manifest; create a new run')
+            row=self.db.execute('SELECT record_json FROM dependency_manifests WHERE manifest_id=?',(manifest['manifest_id'],)).fetchone()
+            if row and row[0]!=canonical(manifest): raise Incompatible('Conflicting content-addressed manifest')
+            self.db.execute('INSERT OR IGNORE INTO dependency_manifests VALUES (?,?,?)',(manifest['manifest_id'],canonical(manifest),now()))
+            self.db.execute('INSERT OR IGNORE INTO article_manifests VALUES (?,?,?,?)',(run_id,page_id,request_hash,manifest['manifest_id']))
+
+    def item_hint(self,run_id,page_id,article):
+        row=self.db.execute('SELECT article_hash,qid FROM historical_item_hints WHERE run_id=? AND page_id=?',(run_id,page_id)).fetchone()
+        if row and row[0]!=digest(article): raise Incompatible('Pinned article association input changed; create a new run')
+        return row[1] if row else None
+
+    def pin_item_hint(self,run_id,page_id,article,qid):
+        with self.transaction():
+            previous=self.item_hint(run_id,page_id,article)
+            if previous and previous!=qid: raise Incompatible('Pinned item hint changed; create a new run')
+            self.db.execute('INSERT OR IGNORE INTO historical_item_hints VALUES (?,?,?,?)',(run_id,page_id,digest(article),qid))

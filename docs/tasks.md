@@ -24,7 +24,29 @@
 - [x] R200-3 Inspect 8 unresolved extractions and verify retained content/sentence/link invariants for all 92 completed articles; fix demonstrated inline-list and normalized-label defects in article 3148970. Version `lead-3`; all 8 residuals remain quarantined.
 - [x] R200-4 Verify Bridge/Comparison generation, ranking and Lead-only linkage with positive/negative fixtures; actual16 have no internal non-self lead edge or shared multi-article subtype/attribute block. Ranking unchanged; add pair audit.
 - [x] R200-5 Complete 177 passing offline tests, independent review, preservation of both old runs and tested operator commands. See [acceptance](../reports/verification/pilot2-remediation.md), [per-article audit](../reports/verification/pilot2-remediation-audit.json) and [PowerShell handoff](pilot100-replay.md). No actual replay run, source API call or pilot executed by the agent; STOP.
-- [ ] R200-6 User runs the next Pilot 100 and returns logs/reports. Pilot 1,000 remains unapproved.
+- [x] R200-6 User ran the subsequent Pilot 100 with qid-4/lead-3 after the cache-dependence repair; no actual qid-3 pilot was run. See Q406 and its assessment. Pilot 1,000 remains unapproved.
+
+### Cache-dependent classification repair — qid-4, offline only
+
+- [x] Q400 Record invariants, bounded acquisition design, trade-offs and old-run fingerprints before code in [implementation ledger](../reports/verification/qid4-implementation.md).
+- [x] Q401 Implement deterministic depth-12 acquisition, immutable logical dependency manifests, pinned materialization and pure classification; preserve sibling/subtype/precedence/cycle/node-budget guards.
+- [x] Q402 Publish manifests atomically, freeze article/request bindings and reject incompatible current-run inputs; deduplicate matching cross-run manifests without editing old bindings.
+- [x] Q403 Bind classification/process fingerprints to manifests; verify artifacts before checkpoint reuse, retain legacy interpretation, validate frozen replay and export manifest/fingerprint/completeness diagnostics.
+- [x] Q404 Version `qid-4`/`pipeline-4`, retain `lead-3`, taxonomy/ranking/eligibility; [offline historical replay](../reports/verification/qid4-historical-audit.json): 57 complete graphs, 43 policy-limited, 27 supported / 30 unclassified / 43 unresolved. This is not a new pilot. All original 37 cache-resolved and 6 unresolved cases now stop consistently at the declared bound.
+- [x] Q405 Full offline suite **229 passed / 0 failed / 0 skipped**, independent review corrections, [preservation verification](../reports/verification/qid4-preservation.json) and tested [PowerShell handoff](pilot100-replay.md). STOP before a real run; no source API call, actual new run or commit/push.
+- [x] Q406 User ran Pilot 100 `0b8c25da-3bf5-4386-856d-d6b3b5dc46bf`, exit 0; [assessment](../reports/pilots/0b8c25da-3bf5-4386-856d-d6b3b5dc46bf/assessment.md). Same cohort/snapshot; 100 manifests/classifications replay verified; 92 complete extraction, 27 supported / 30 unclassified / 43 policy-limited unresolved, 16 eligible, 0 pairs, 0 API requests, 33.83 seconds. RSS/storage footprint and coverage require review before scaling. Pilot 1,000/Production remain unapproved.
+
+### Primary-First, Optional-Subtype — approved design change
+
+- [x] P500 Preserve all three actual runs/raw/reports and define the concrete bounded decision policy; update FR-009/012/016/024 before implementation. See [ledger](../reports/verification/primary-first-implementation.md).
+- [x] P501 Implement qid-5/pipeline-5 primary P31/P279 and optional subtype traversal, global-precedence dominance proof, role-aware immutable manifests and backward-compatible result schema; RED/GREEN policy regressions.
+- [x] P502 Integrate historical source/materialization, compact source-bound evidence, immutable current-run/cross-run reuse and frozen replay. Primary owns the 2,048-node union budget; prepare once/release per article; full raw validation retained.
+- [x] P503 Verify primary-only Bridge, supported-subtype-only Comparison, quality thresholds and report primary/subtype completeness in classification/manifest/subtype audits; no primary fallback for Comparison.
+- [x] P504 [Retrospective](../reports/verification/primary-first-retrospective.json): 34 primary classified / 30 unclassified / 36 unresolved, 20 eligible; original43 gains7 primary proofs. Comparison0; Bridge unavailable23 missing archived identity resolutions. Classification payload ~86.9% smaller; isolated RSS~161MiB, not live pilot RAM. [Preservation PASS](../reports/verification/primary-first-preservation.json).
+- [x] P505 Synchronized SPEC/PLAN/TASK/model/contracts/README/operator docs and scanned active descriptions; old references remain explicitly legacy/historical. Historical assessments unchanged.
+- [x] P506 Final offline suite **277 passed / 0 failed / 0 skipped**, independent review findings corrected with regressions, PowerShell fixture prepare/create/status/report/logging PASS. [Acceptance](../reports/verification/primary-first-implementation.md); [handoff](pilot100-replay.md). STOP; no actual qid-5 run, API, pilot, commit/push.
+- [ ] P507 USER runs a new qid-5 Pilot100 and returns artifacts. Not performed by agent.
+- [ ] P508 Review coverage, RAM/storage/API behavior and reproducibility before explicitly authorizing Pilot1000. Production remains separately unapproved.
 
 ## Execution Rules
 
