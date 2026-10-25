@@ -1,0 +1,33 @@
+{
+  "b0243673-5f0b-4ac6-b8b3-0ca7aa74ccc6": {
+    "tables": {
+      "pipeline_runs": 1,
+      "candidates": 100,
+      "discovery_streams": 1,
+      "stage_results": 600,
+      "lead_results": 100,
+      "classification_results": 100,
+      "pair_candidates": 0,
+      "selection_steps": 5,
+      "run_events": 101,
+      "pilot_reports": 1
+    },
+    "report_files_preserved": 6
+  },
+  "9c3ed5a4-f161-454c-8a3c-71fe69ed6c1e": {
+    "tables": {
+      "pipeline_runs": 1,
+      "candidates": 100,
+      "discovery_streams": 1,
+      "stage_results": 535,
+      "lead_results": 100,
+      "classification_results": 100,
+      "pair_candidates": 0,
+      "selection_steps": 16,
+      "run_events": 101,
+      "pilot_reports": 1
+    },
+    "report_files_preserved": 14
+  },
+  "actual_run_count": 2
+}

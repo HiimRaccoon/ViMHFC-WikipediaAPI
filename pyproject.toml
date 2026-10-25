@@ -1,0 +1,5 @@
+[tool.pytest.ini_options]
+testpaths = ["tests/unit", "tests/integration"]
+pythonpath = ["backend/src"]
+addopts = "-ra"
+markers = ["network: explicit opt-in real source acquisition"]

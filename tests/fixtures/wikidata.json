@@ -1,0 +1,11 @@
+{
+  "Q1": {
+    "revision_id": 101, "revision_timestamp": "2026-10-13T00:00:00Z",
+    "entity": {"id":"Q1", "sitelinks":{"viwiki":{"title":"A"}}, "claims":{
+      "P31":[{"mainsnak":{"snaktype":"value","datavalue":{"value":{"id":"Q5"}}}}],
+      "P106":[{"mainsnak":{"snaktype":"value","datavalue":{"value":{"id":"Q901"}}}}]
+    }}
+  },
+  "Q5": {"revision_id":105,"revision_timestamp":"2026-10-13T00:00:00Z","entity":{"id":"Q5","claims":{},"sitelinks":{}}},
+  "Q901": {"revision_id":1001,"revision_timestamp":"2026-10-13T00:00:00Z","entity":{"id":"Q901","claims":{},"sitelinks":{}}}
+}

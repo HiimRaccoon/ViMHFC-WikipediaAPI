@@ -1,0 +1,548 @@
+{
+  "purpose": "Curated measurements for read-only review of the user-run Pilot100 round-2 assessment. No acquisition performed to generate this bundle.",
+  "assessment_path": "reports/pilots/9c3ed5a4-f161-454c-8a3c-71fe69ed6c1e/assessment.md",
+  "assessment_sha256": "3503a58af1c2ff65ff3d834bc5a7e289d67b6aec37a64825a5493cda354d4933",
+  "runs": [
+    {
+      "run_id": "b0243673-5f0b-4ac6-b8b3-0ca7aa74ccc6",
+      "snapshot": "2026-10-25T03:00:00Z",
+      "config_hash": "e6c0df8c87da2efdccd059be2cf44356b80f4b625b0cce935bd9689e6f131139",
+      "size": 100,
+      "completed": true,
+      "cohort_hash": "96bb4880e587ecc1de2528db25bf80cb446c94e930280f56638205bb40c8a173",
+      "started_at": "2026-10-25T04:33:45.105190Z",
+      "ended_at": "2026-10-25T05:08:02.150204Z",
+      "rule_versions": {
+        "classification": "qid-1",
+        "extraction": "lead-1",
+        "ranking": "rank-1"
+      },
+      "source_report_path": "reports/pilots/b0243673-5f0b-4ac6-b8b3-0ca7aa74ccc6/100/metrics.json",
+      "source_report_sha256": "ae08ea74a15e7ab0c70c3f1902ee50a630ba388f7b3787025a94c2d0788d8954",
+      "performance": {
+        "end_to_end_seconds": 2056.8286576999994,
+        "candidate_counts": {
+          "cohort": 100,
+          "eligible": 5,
+          "pending_classification": 66,
+          "quality_rejected": 29,
+          "source_failed": 0
+        },
+        "request_rates": {
+          "error_count": 103,
+          "error_denominator": 3956,
+          "error_rate": 0.026036400404448937,
+          "physical_request_count": 3956,
+          "retry_count": 83,
+          "retry_denominator": 3956,
+          "retry_rate": 0.020980788675429726
+        },
+        "cache": {
+          "hit_rate": 0.14214463840399003,
+          "hits": 513,
+          "lookups": 3609
+        },
+        "physical_requests": {
+          "backoff_seconds": 475,
+          "viwiki:discovery_and_identity:allpages:requests": 24,
+          "viwiki:discovery_and_identity:categorymembers:requests": 8,
+          "viwiki:discovery_and_identity:logevents:requests": 199,
+          "viwiki:discovery_and_identity:logical_requests": 645,
+          "viwiki:discovery_and_identity:request_seconds": 213.4190754000042,
+          "viwiki:discovery_and_identity:revisions:requests": 414,
+          "viwiki:historical_classification:logical_requests": 100,
+          "viwiki:historical_classification:pageprops:requests": 100,
+          "viwiki:historical_classification:request_seconds": 35.431270900004165,
+          "viwiki:lead_identity_dependencies:logevents:requests": 392,
+          "viwiki:lead_identity_dependencies:logical_requests": 1235,
+          "viwiki:lead_identity_dependencies:other:requests": 54,
+          "viwiki:lead_identity_dependencies:request_seconds": 457.5837531000152,
+          "viwiki:lead_identity_dependencies:revisions:requests": 789,
+          "wikidata:historical_classification:backoff_seconds": 475,
+          "wikidata:historical_classification:errors": 103,
+          "wikidata:historical_classification:logical_requests": 1893,
+          "wikidata:historical_classification:request_seconds": 852.8912911000075,
+          "wikidata:historical_classification:retries": 83,
+          "wikidata:historical_classification:revisions:requests": 1976
+        },
+        "stages": {
+          "acquire": {
+            "active_seconds": 0.8655747999960113,
+            "backoff_seconds": 0,
+            "failed": 0,
+            "new": 100,
+            "new_articles_per_minute": 6931.809937197397,
+            "queue_seconds": 0,
+            "reused": 0,
+            "wall_seconds": 0.8655747999960113
+          },
+          "classify": {
+            "active_seconds": 898.293638099999,
+            "backoff_seconds": 475,
+            "failed": 0,
+            "new": 100,
+            "new_articles_per_minute": 6.679330394336015,
+            "queue_seconds": 0,
+            "reused": 0,
+            "wall_seconds": 1373.293638099999
+          },
+          "discovery": {
+            "active_seconds": 214.9206122999999,
+            "backoff_seconds": 0,
+            "new": 0,
+            "new_articles_per_minute": 0.0,
+            "queue_seconds": 0,
+            "reused": 0,
+            "wall_seconds": 214.9206122999999
+          },
+          "extract": {
+            "active_seconds": 0.9835928000006788,
+            "backoff_seconds": 0,
+            "failed": 0,
+            "new": 100,
+            "new_articles_per_minute": 6100.085319855797,
+            "queue_seconds": 0,
+            "reused": 0,
+            "wall_seconds": 0.9835928000006788
+          },
+          "pairs": {
+            "active_seconds": 7.430000005115289e-05,
+            "backoff_seconds": 0,
+            "new": 0,
+            "new_articles_per_minute": 0.0,
+            "queue_seconds": 0,
+            "reused": 0,
+            "wall_seconds": 7.430000005115289e-05
+          },
+          "process": {
+            "active_seconds": 1366.7788244000026,
+            "backoff_seconds": 475,
+            "failed": 0,
+            "new": 100,
+            "new_articles_per_minute": 4.389883639464431,
+            "queue_seconds": 0,
+            "reused": 0,
+            "wall_seconds": 1841.7788244000026
+          },
+          "quality": {
+            "active_seconds": 0.07957759999726477,
+            "backoff_seconds": 0,
+            "failed": 0,
+            "new": 100,
+            "new_articles_per_minute": 75398.10198103776,
+            "queue_seconds": 0,
+            "reused": 0,
+            "wall_seconds": 0.07957759999726477
+          },
+          "resolve_links": {
+            "active_seconds": 460.87297720000106,
+            "backoff_seconds": 0,
+            "failed": 0,
+            "new": 100,
+            "new_articles_per_minute": 13.01877154189544,
+            "queue_seconds": 0,
+            "reused": 0,
+            "wall_seconds": 460.87297720000106
+          },
+          "selection": {
+            "active_seconds": 0.000273399999969115,
+            "backoff_seconds": 0,
+            "new": 0,
+            "new_articles_per_minute": 0.0,
+            "queue_seconds": 0,
+            "reused": 0,
+            "wall_seconds": 0.000273399999969115
+          }
+        },
+        "production_eta": {
+          "reason": "Insufficient cold observations, or warm resume; full-size selection cost remains unmeasured.",
+          "seconds": null,
+          "status": "unavailable"
+        }
+      },
+      "template_audit": {
+        "attempted": 100,
+        "successful": 35,
+        "unresolved": 65,
+        "other_failure": 0,
+        "not_attempted": 0,
+        "success_rate": 0.35,
+        "unresolved_rate": 0.65
+      },
+      "classification_outcome_counts": {
+        "unclassified": 17,
+        "pending": 66,
+        "completed": 17
+      },
+      "classification_reason_counts": {
+        "no_supported_rule": 17,
+        "truncated_hierarchy": 46,
+        "completed": 17,
+        "maxlag": 20
+      },
+      "pending_with_configured_root": null,
+      "corpus": {
+        "article_count": 5,
+        "graph": {
+          "in_degree_distribution": {
+            "0": 4,
+            "1": 1
+          },
+          "internal_edge_count": 1,
+          "isolated_article_count": 4,
+          "out_degree_distribution": {
+            "0": 4,
+            "1": 1
+          },
+          "weak_component_sizes": [
+            1,
+            1,
+            1,
+            1,
+            1
+          ]
+        },
+        "group_counts": {
+          "Award / Competition": 2,
+          "Creative Work": 1,
+          "Event": 1,
+          "Organization": 1
+        },
+        "positive_pairs": {},
+        "quota_deviations": {
+          "Award / Competition": -1498,
+          "Creative Work": -2499,
+          "Event": -2499,
+          "Landmark / Facility": -1500,
+          "Location": -3000,
+          "Organization": -2999,
+          "Person": -5000,
+          "Science / Technology": -1000
+        },
+        "subtype_counts": {
+          "Q13406554": 1,
+          "Q618779": 1
+        },
+        "valid_2hop_yield": {
+          "ratio": null,
+          "reviewed": 0,
+          "status": "unassessed",
+          "valid": 0
+        }
+      },
+      "pair_diagnostics": {
+        "lead_bridge_count": 0,
+        "partner_endpoint_coverage": 0,
+        "positive_counts": {},
+        "score_distribution": {},
+        "shortcut_risk_pair_count": 0,
+        "subtype_attribute_compatibility_blocks": {}
+      },
+      "source_failure_count": 0
+    },
+    {
+      "run_id": "9c3ed5a4-f161-454c-8a3c-71fe69ed6c1e",
+      "snapshot": "2026-10-25T03:00:00Z",
+      "config_hash": "c29c2a66f744704373dcbebb8294154a6dbd5361dbbf98cc2904125d54e3175b",
+      "size": 100,
+      "completed": true,
+      "cohort_hash": "96bb4880e587ecc1de2528db25bf80cb446c94e930280f56638205bb40c8a173",
+      "started_at": "2026-10-25T07:29:48.218023Z",
+      "ended_at": "2026-10-25T07:33:34.831549Z",
+      "rule_versions": {
+        "classification": "qid-2",
+        "extraction": "lead-2",
+        "ranking": "rank-1"
+      },
+      "source_report_path": "reports/pilots/9c3ed5a4-f161-454c-8a3c-71fe69ed6c1e/100/metrics.json",
+      "source_report_sha256": "d613daab2d5a84c115863bbff91a2a65fcdbc324e66f23f5557b3187df3d7b11",
+      "performance": {
+        "end_to_end_seconds": 226.45191569999952,
+        "candidate_counts": {
+          "cohort": 100,
+          "eligible": 16,
+          "pending_classification": 43,
+          "quality_rejected": 41,
+          "source_failed": 0
+        },
+        "request_rates": {
+          "error_count": 0,
+          "error_denominator": 531,
+          "error_rate": 0.0,
+          "physical_request_count": 531,
+          "retry_count": 0,
+          "retry_denominator": 531,
+          "retry_rate": 0.0
+        },
+        "cache": {
+          "hit_rate": 0.8244370308590492,
+          "hits": 1977,
+          "lookups": 2398
+        },
+        "physical_requests": {
+          "viwiki:historical_classification:logical_requests": 19,
+          "viwiki:historical_classification:pageprops:requests": 19,
+          "viwiki:historical_classification:request_seconds": 6.2158577000027435,
+          "viwiki:lead_identity_dependencies:logevents:requests": 124,
+          "viwiki:lead_identity_dependencies:logical_requests": 390,
+          "viwiki:lead_identity_dependencies:other:requests": 36,
+          "viwiki:lead_identity_dependencies:request_seconds": 152.4819598999893,
+          "viwiki:lead_identity_dependencies:revisions:requests": 230,
+          "wikidata:historical_classification:logical_requests": 122,
+          "wikidata:historical_classification:request_seconds": 55.46885509999083,
+          "wikidata:historical_classification:revisions:requests": 122
+        },
+        "stages": {
+          "acquire": {
+            "active_seconds": 0,
+            "backoff_seconds": 0,
+            "failed": 0,
+            "new": 0,
+            "new_articles_per_minute": null,
+            "queue_seconds": 0,
+            "reused": 100,
+            "wall_seconds": 0
+          },
+          "classify": {
+            "active_seconds": 65.94235329999174,
+            "backoff_seconds": 0,
+            "failed": 0,
+            "new": 100,
+            "new_articles_per_minute": 90.98856349126915,
+            "queue_seconds": 0,
+            "reused": 0,
+            "wall_seconds": 65.94235329999174
+          },
+          "discovery": {
+            "active_seconds": 0.008244200000262936,
+            "backoff_seconds": 0,
+            "new": 0,
+            "new_articles_per_minute": 0.0,
+            "queue_seconds": 0,
+            "reused": 0,
+            "wall_seconds": 0.008244200000262936
+          },
+          "extract": {
+            "active_seconds": 0.9834559000046283,
+            "backoff_seconds": 0,
+            "failed": 0,
+            "new": 100,
+            "new_articles_per_minute": 6100.934469935828,
+            "queue_seconds": 0,
+            "reused": 0,
+            "wall_seconds": 0.9834559000046283
+          },
+          "item_hint": {
+            "active_seconds": 6.242494500000248,
+            "backoff_seconds": 0,
+            "failed": 0,
+            "new": 19,
+            "new_articles_per_minute": 182.6193038696237,
+            "queue_seconds": 0,
+            "reused": 0,
+            "wall_seconds": 6.242494500000248
+          },
+          "pairs": {
+            "active_seconds": 0.0002007000002777204,
+            "backoff_seconds": 0,
+            "new": 0,
+            "new_articles_per_minute": 0.0,
+            "queue_seconds": 0,
+            "reused": 0,
+            "wall_seconds": 0.0002007000002777204
+          },
+          "process": {
+            "active_seconds": 226.23571659999652,
+            "backoff_seconds": 0,
+            "failed": 0,
+            "new": 100,
+            "new_articles_per_minute": 26.5210113158591,
+            "queue_seconds": 0,
+            "reused": 0,
+            "wall_seconds": 226.23571659999652
+          },
+          "quality": {
+            "active_seconds": 0.06889170000613376,
+            "backoff_seconds": 0,
+            "failed": 0,
+            "new": 100,
+            "new_articles_per_minute": 87093.220220517,
+            "queue_seconds": 0,
+            "reused": 0,
+            "wall_seconds": 0.06889170000613376
+          },
+          "resolve_links": {
+            "active_seconds": 153.73400209999818,
+            "backoff_seconds": 0,
+            "failed": 0,
+            "new": 16,
+            "new_articles_per_minute": 6.24455219331086,
+            "queue_seconds": 0,
+            "reused": 0,
+            "wall_seconds": 153.73400209999818
+          },
+          "selection": {
+            "active_seconds": 0.0005058999995526392,
+            "backoff_seconds": 0,
+            "new": 0,
+            "new_articles_per_minute": 0.0,
+            "queue_seconds": 0,
+            "reused": 0,
+            "wall_seconds": 0.0005058999995526392
+          }
+        },
+        "production_eta": {
+          "reason": "New-rule replay reuses historical raw cache; this is not a cold production measurement.",
+          "seconds": null,
+          "status": "unavailable"
+        }
+      },
+      "template_audit": {
+        "attempted": 100,
+        "successful": 92,
+        "unresolved": 8,
+        "other_failure": 0,
+        "not_attempted": 0,
+        "success_rate": 0.92,
+        "unresolved_rate": 0.08
+      },
+      "classification_outcome_counts": {
+        "unclassified": 30,
+        "pending": 43,
+        "completed": 27
+      },
+      "classification_reason_counts": {
+        "no_supported_rule": 30,
+        "truncated_hierarchy": 43,
+        "completed": 27
+      },
+      "pending_with_configured_root": 26,
+      "corpus": {
+        "article_count": 16,
+        "graph": {
+          "in_degree_distribution": {
+            "0": 15,
+            "1": 1
+          },
+          "internal_edge_count": 1,
+          "isolated_article_count": 15,
+          "out_degree_distribution": {
+            "0": 15,
+            "1": 1
+          },
+          "weak_component_sizes": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ]
+        },
+        "group_counts": {
+          "Award / Competition": 3,
+          "Creative Work": 7,
+          "Event": 1,
+          "Landmark / Facility": 1,
+          "Organization": 4
+        },
+        "positive_pairs": {},
+        "quota_deviations": {
+          "Award / Competition": -1497,
+          "Creative Work": -2493,
+          "Event": -2499,
+          "Landmark / Facility": -1499,
+          "Location": -3000,
+          "Organization": -2996,
+          "Person": -5000,
+          "Science / Technology": -1000
+        },
+        "subtype_counts": {
+          "Q11424": 2,
+          "Q13406554": 2,
+          "Q3918": 1,
+          "Q41176": 1,
+          "Q618779": 1
+        },
+        "valid_2hop_yield": {
+          "ratio": null,
+          "reviewed": 0,
+          "status": "unassessed",
+          "valid": 0
+        }
+      },
+      "pair_diagnostics": {
+        "lead_bridge_count": 0,
+        "partner_endpoint_coverage": 0,
+        "positive_counts": {},
+        "score_distribution": {},
+        "shortcut_risk_pair_count": 0,
+        "subtype_attribute_compatibility_blocks": {}
+      },
+      "source_failure_count": 0
+    }
+  ],
+  "limitations": [
+    "Original detailed metrics, raw cache, SQLite and terminal logs remain local and ignored; checksums identify those source reports but cannot independently reconstruct them.",
+    "Current pipeline-3/qid-3/lead-3 code and retrospective outcomes are subsequent offline repairs, not measured results of the round-2 pipeline-2/qid-2/lead-2 run."
+  ],
+  "classification_transitions": [
+    {
+      "original": "completed",
+      "round2": "completed",
+      "articles": 17
+    },
+    {
+      "original": "maxlag",
+      "round2": "completed",
+      "articles": 3
+    },
+    {
+      "original": "maxlag",
+      "round2": "no_supported_rule",
+      "articles": 6
+    },
+    {
+      "original": "maxlag",
+      "round2": "truncated_hierarchy",
+      "articles": 11
+    },
+    {
+      "original": "no_supported_rule",
+      "round2": "no_supported_rule",
+      "articles": 17
+    },
+    {
+      "original": "truncated_hierarchy",
+      "round2": "completed",
+      "articles": 7
+    },
+    {
+      "original": "truncated_hierarchy",
+      "round2": "no_supported_rule",
+      "articles": 7
+    },
+    {
+      "original": "truncated_hierarchy",
+      "round2": "truncated_hierarchy",
+      "articles": 32
+    }
+  ],
+  "same_cohort": true,
+  "same_snapshot": true,
+  "later_offline_repair": {
+    "report": "reports/verification/pilot2-remediation.md",
+    "audit": "reports/verification/pilot2-remediation-audit.json",
+    "real_replay_after_repair_executed": false
+  }
+}

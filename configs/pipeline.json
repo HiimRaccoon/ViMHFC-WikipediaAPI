@@ -1,0 +1,21 @@
+{
+  "version": "pipeline-3", "initial_target": 80000, "extension_size": 10000, "corpus_size": 20000,
+  "seed": "vimfc-1", "user_agent": "", "contact": "",
+  "known_revision_batch": 20, "max_attempts": 5, "maxlag": 5,
+  "local_workers": 2, "transaction_batch": 100, "checkpoint_seconds": 10,
+  "host_concurrency": 1, "sample_interval_seconds": 1,
+  "streams": [
+    {"id":"people", "kind":"categorymembers", "title":"Thể loại:Nhân vật còn sống"},
+    {"id":"organizations", "kind":"categorymembers", "title":"Thể loại:Tổ chức"},
+    {"id":"locations", "kind":"categorymembers", "title":"Thể loại:Thành phố"},
+    {"id":"events", "kind":"categorymembers", "title":"Thể loại:Sự kiện"},
+    {"id":"works", "kind":"categorymembers", "title":"Thể loại:Phim"},
+    {"id":"awards", "kind":"categorymembers", "title":"Thể loại:Giải thưởng"},
+    {"id":"facilities", "kind":"categorymembers", "title":"Thể loại:Công trình xây dựng"},
+    {"id":"science", "kind":"categorymembers", "title":"Thể loại:Khoa học và công nghệ"},
+    {"id":"namespace", "kind":"allpages", "prefix":""}
+  ],
+  "namespace_prefixes": ["A","B","C","D","Đ","E","G","H","I","K","L","M","N","O","P","Q","R","S","T","U","V","X","Y"],
+  "quotas": {"Person":5000,"Organization":3000,"Location":3000,"Event":2500,"Creative Work":2500,"Award / Competition":1500,"Landmark / Facility":1500,"Science / Technology":1000},
+  "classification_file": "classification_rules.json", "extraction_file": "extraction_rules.json", "ranking_file": "ranking_rules.json"
+}

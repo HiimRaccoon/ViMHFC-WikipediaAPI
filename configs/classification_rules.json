@@ -1,0 +1,24 @@
+{
+  "version": "qid-3", "max_depth": 12,
+  "cached_closure_completion": true, "max_cached_nodes": 2048, "terminal_unresolved": true,
+  "stop_at_configured_roots": true,
+  "precedence": ["Landmark / Facility", "Award / Competition", "Organization", "Location", "Creative Work", "Person", "Science / Technology", "Event"],
+  "roots": {
+    "Q5": {"group":"Person","name":"Human","subtype":false},
+    "Q43229": {"group":"Organization","name":"Organization","subtype":false},
+    "Q3918": {"group":"Organization","name":"University","subtype":true},
+    "Q6256": {"group":"Location","name":"Country","subtype":true},
+    "Q515": {"group":"Location","name":"City","subtype":true},
+    "Q1656682": {"group":"Event","name":"Event","subtype":false},
+    "Q17537576": {"group":"Creative Work","name":"Creative work","subtype":false},
+    "Q11424": {"group":"Creative Work","name":"Film","subtype":true},
+    "Q618779": {"group":"Award / Competition","name":"Award","subtype":true},
+    "Q13406554": {"group":"Award / Competition","name":"Sports competition","subtype":true},
+    "Q483110": {"group":"Landmark / Facility","name":"Stadium","subtype":true},
+    "Q41176": {"group":"Landmark / Facility","name":"Building","subtype":true},
+    "Q11016": {"group":"Science / Technology","name":"Technology","subtype":true},
+    "Q901": {"group":"Person","name":"Scientist","subtype":true},
+    "Q937857": {"group":"Person","name":"Footballer","subtype":true},
+    "Q33999": {"group":"Person","name":"Actor","subtype":true}
+  }
+}

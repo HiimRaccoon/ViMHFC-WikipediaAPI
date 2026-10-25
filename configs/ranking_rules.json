@@ -1,0 +1,7 @@
+{
+  "version": "rank-1", "selection_version": "greedy-1", "comparison_cap": 20, "bridge_cap": 20,
+  "bridge_weights": {"relation_signal":3,"complementary_information":3,"endpoint_quality":2,"redundancy":-2,"shortcut_risk":-3},
+  "comparison_weights": {"subtype_match":3,"attribute_compatibility":3,"endpoint_quality":2,"redundancy":-2,"shortcut_risk":-3},
+  "selection_weights": {"quality":2,"pair":3,"connectivity":1,"deficit":2,"novelty":1,"hub":1,"overrepresentation":1},
+  "stopwords": ["là", "và", "của", "một", "các", "những", "được", "ở", "tại", "trong"]
+}

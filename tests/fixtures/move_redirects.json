@@ -1,0 +1,8 @@
+{
+  "snapshot":"2026-10-14T00:00:00Z",
+  "moves":[{"pageid":1,"title":"Tên cũ","params":{"target_title":"Tên mới"},"timestamp":"2026-10-15T00:00:00Z"}],
+  "pages":{
+    "A":{"page_id":1,"title":"A","revision_id":10,"content":"#ĐỔI [[B#Mục]]"},
+    "B":{"page_id":2,"title":"B","revision_id":20,"content":"Văn xuôi."}
+  }
+}

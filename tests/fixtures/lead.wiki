@@ -1,0 +1,9 @@
+{{Infobox person|name=Không giữ|birth_place=[[Sai infobox]]}}
+'''Nguyễn A''' là nhà khoa học tại [[Đại học B|Đại học B]] ở [[Việt Nam]]. Ông sinh ngày {{birth date|1980|2|3}} tại TP. Hà Nội.<ref>Không giữ [[Sai chú thích]]</ref>
+
+Ông là tác giả của một công trình nổi tiếng và làm việc trong lĩnh vực vật lý nhiều năm. Ông gia nhập viện nghiên cứu vào năm 2001.
+{| class="wikitable"
+| [[Sai bảng]]
+|}
+== Sự nghiệp ==
+Nội dung thân bài [[Sai thân bài]].

@@ -1,0 +1,59 @@
+{
+  "candidate_counts": {
+    "cohort": 100,
+    "eligible": 5,
+    "pending_classification": 66,
+    "quality_rejected": 29,
+    "source_failed": 0
+  },
+  "classification_reasons": {
+    "completed": 17,
+    "maxlag": 20,
+    "no_supported_rule": 17,
+    "truncated_hierarchy": 46
+  },
+  "cohort_hash": "96bb4880e587ecc1de2528db25bf80cb446c94e930280f56638205bb40c8a173",
+  "completed": true,
+  "config_hash": "e6c0df8c87da2efdccd059be2cf44356b80f4b625b0cce935bd9689e6f131139",
+  "disk_growth_mib": 277.30764389038086,
+  "duration_seconds": 2056.8286576999994,
+  "ended_at": "2026-10-25T05:08:02.150204Z",
+  "extraction": {
+    "attempted": 100,
+    "success_rate": 0.35,
+    "successful": 35,
+    "unresolved": 65,
+    "unresolved_rate": 0.65
+  },
+  "peak_rss_mib": 172.58203125,
+  "pilot1000_authorized": false,
+  "pilot1000_recommendation": "defer: address extraction/classification yield and maxlag before scaling",
+  "positive_pair_count": 0,
+  "production_authorized": false,
+  "request_rates": {
+    "error_count": 103,
+    "error_denominator": 3956,
+    "error_rate": 0.026036400404448937,
+    "physical_request_count": 3956,
+    "retry_count": 83,
+    "retry_denominator": 3956,
+    "retry_rate": 0.020980788675429726
+  },
+  "research_corpus_delivered": false,
+  "run_id": "b0243673-5f0b-4ac6-b8b3-0ca7aa74ccc6",
+  "size": 100,
+  "snapshot": "2026-10-25T03:00:00Z",
+  "source_failure_count": 0,
+  "started_at": "2026-10-25T04:33:45.105190Z",
+  "verification": {
+    "artifact_integrity": "passed",
+    "artifact_sha256": {
+      "cohort.json": "8c097dd31b373cea8d0f275940f8165abff642979d835cc682e69f6c56317df8",
+      "metrics.json": "ae08ea74a15e7ab0c70c3f1902ee50a630ba388f7b3787025a94c2d0788d8954",
+      "template-audit.json": "fd5e4cf65f8c0da27bcd1948c38c638e05ee4dfcf6bfe2c423b4aac8f52cf970"
+    },
+    "raw_objects_hash_verified": 1302,
+    "source_revision_refs_verified": 1666,
+    "source_revisions_after_cutoff": 0
+  }
+}

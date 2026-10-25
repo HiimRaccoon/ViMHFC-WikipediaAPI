@@ -2,9 +2,29 @@
 
 **Inputs:** [specs.md](specs.md), [plans.md](plans.md), [data-model.md](data-model.md), [contracts/interfaces.md](contracts/interfaces.md), [research.md](research.md), [research_vimqa.md](research_vimqa.md), [quickstart.md](quickstart.md).
 
-**Status:** Task-generation output only. No implementation, tests, pilots, or production collection have been executed by creating this file. All tasks remain unchecked.
+**Status (2026-10-25):** T001–T048 implemented and verified with 81 passing offline backend tests. Authorized T049 pilot 100 is now complete and its source/artifact checks pass: 5 eligible, 65 unresolved extraction, 66 pending classification (overlapping outcomes). See [pilot 100 assessment](../reports/pilots/b0243673-5f0b-4ac6-b8b3-0ca7aa74ccc6/100/summary.md). Pilot 1,000 is not recommended until the identified issues are addressed; T050 onward and production remain unapproved. Snapshot: `2026-10-25T03:00:00Z` (10:00 Asia/Saigon).
+
+**Offline remediation (2026-10-25):** The user's subsequent repair request is implemented and verified: **142 passing offline tests**; [root causes/results](../reports/verification/pilot100-remediation.md), [per-article audit](../reports/verification/pilot100-remediation-audit.json), [PowerShell handoff](pilot100-replay.md). Archived-cache extraction: 92 complete / 8 unresolved. Of 46 original truncated classifications, 7 become supported and 7 unsupported; 32 still have necessary open branches. Those figures describe the offline retrospective; the agent performed no source API calls during remediation. The user subsequently ran the new Pilot 100 successfully; see R100-6 and its replay assessment below. T050 and final-rule staged live validation remain unchecked.
+
+### Pilot 100 repair checklist — authorized offline scope
+
+- [x] R100-1 Audit all 65 unresolved articles and 55 diagnostic names; implement tested/versioned extraction rules, strict safe formatters and AST/list/sentence-boundary fixes.
+- [x] R100-2 Audit all 46 truncated cases, including 27 containing roots; fix branch stopping/cycles/depth and preserve necessary sibling/subtype dependencies.
+- [x] R100-3 Investigate all 20 maxlag cases and 3,956 request fan-out; implement tested persistent cooldown/failure caches, safe batching, current-run pending upsert and compatible historical reuse.
+- [x] R100-4 Verify offline fixtures/full suite, raw-cache retrospective results and immutable old-run/report fingerprints; keep snapshot, eligibility, Lead-only Graph and exact 20,000 target.
+- [x] R100-5 Deliver ordered new-run PowerShell commands, Tee-Object logs/exit codes, status/report export and retry/resume instructions; stop before a real rerun.
+- [x] R100-6 User runs new Pilot 100 and supplies logs/reports for evaluation. Run `9c3ed5a4-f161-454c-8a3c-71fe69ed6c1e` completed with exit 0; [replay assessment](../reports/pilots/9c3ed5a4-f161-454c-8a3c-71fe69ed6c1e/assessment.md): 226.45 seconds, 92 complete extractions, 27 supported classifications, 43 structural pending, 16 eligible, 531 requests, 0 errors/retries. Same cohort/snapshot verified. Pilot 1,000 remains unapproved and is not recommended yet.
 
 **Layout:** The repository uses the requested `docs/` artifacts, not an initialized `.specify` feature tree; there are no Spec Kit extension hooks or constitution to execute.
+
+### Pilot 100 round-2 repair — authorized offline scope
+
+- [x] R200-1 Diagnose all 43 truncated cases against round-2 SQLite/log/checkpoint/raw data; retain immutable baselines of both actual runs. See [repair ledger](../reports/verification/pilot2-remediation-ledger.md).
+- [x] R200-2 Implement regression-tested cached fixed-point classification with precise unresolved reasons, safe stopping and preserved network bounds/taxonomy. Cached analysis of 43 cases: 20 supported, 17 proved unsupported, 6 terminal unresolved with two required QIDs absent.
+- [x] R200-3 Inspect 8 unresolved extractions and verify retained content/sentence/link invariants for all 92 completed articles; fix demonstrated inline-list and normalized-label defects in article 3148970. Version `lead-3`; all 8 residuals remain quarantined.
+- [x] R200-4 Verify Bridge/Comparison generation, ranking and Lead-only linkage with positive/negative fixtures; actual16 have no internal non-self lead edge or shared multi-article subtype/attribute block. Ranking unchanged; add pair audit.
+- [x] R200-5 Complete 177 passing offline tests, independent review, preservation of both old runs and tested operator commands. See [acceptance](../reports/verification/pilot2-remediation.md), [per-article audit](../reports/verification/pilot2-remediation-audit.json) and [PowerShell handoff](pilot100-replay.md). No actual replay run, source API call or pilot executed by the agent; STOP.
+- [ ] R200-6 User runs the next Pilot 100 and returns logs/reports. Pilot 1,000 remains unapproved.
 
 ## Execution Rules
 
@@ -22,33 +42,39 @@
 
 ## Phase 1: Project Setup
 
+**Progress:** Complete T001–T006; see [setup verification](../reports/verification/setup.md). Frontend is scaffold only, without product features.
+
 **Goal:** Establish reproducible development/test environments without fetching a corpus or changing annotation requirements.
 
-- [ ] T001 Create the backend package skeleton and entry point in `backend/pyproject.toml`, `backend/src/vimfc/__init__.py`, and `backend/src/vimfc/__main__.py`; select compatible Python dependencies and document the Python 3.12 baseline.
-- [ ] T002 [P] Create React/TypeScript/Vite setup in `frontend/package.json`, `frontend/tsconfig.json`, and `frontend/vite.config.ts`; configure build, typecheck, unit-test and Playwright scripts without generating product features.
-- [ ] T003 Lock compatible dependencies in `backend/requirements.lock` and `frontend/package-lock.json`; verify clean installation/import/build smoke checks and record Node/Vite compatibility in `README.md`.
-- [ ] T004 Create source-fixture and test configuration in `tests/conftest.py`, `tests/fixtures/manifest.json`, and `frontend/playwright.config.ts`; separate archived/controlled tests from opt-in real-network checks.
-- [ ] T005 [P] Extend `.gitignore` to exclude large source/corpus data, raw logs, caches, local databases/sidecars, bulk exports, virtual environments and build outputs while preserving `.agents/`. Keep necessary curated reproducibility/acceptance reports in `reports/verification/` and pilot assessment summaries (for example `reports/pilots/<run_id>/assessment.md` and cohort `summary.md`/compact `summary.json`) committable through explicit scoped rules; do not blanket-ignore their parent directories or allow large raw telemetry through summary exceptions. Document artifact/allowlist boundaries and portable corpus delivery in `README.md`.
-- [ ] T006 Review `docs/research_vimqa.md` and `docs/research.md` against the implementation boundaries; record source/fixture acquisition provenance in `tests/fixtures/manifest.json` without attributing this project's adaptations to ViMQA.
+- [x] T001 Create the backend package skeleton and entry point in `backend/pyproject.toml`, `backend/src/vimfc/__init__.py`, and `backend/src/vimfc/__main__.py`; select compatible Python dependencies and document the Python 3.12 baseline.
+- [x] T002 [P] Create React/TypeScript/Vite setup in `frontend/package.json`, `frontend/tsconfig.json`, and `frontend/vite.config.ts`; configure build, typecheck, unit-test and Playwright scripts without generating product features.
+- [x] T003 Lock compatible dependencies in `backend/requirements.lock` and `frontend/package-lock.json`; verify clean installation/import/build smoke checks and record Node/Vite compatibility in `README.md`.
+- [x] T004 Create source-fixture and test configuration in `tests/conftest.py`, `tests/fixtures/manifest.json`, and `frontend/playwright.config.ts`; separate archived/controlled tests from opt-in real-network checks.
+- [x] T005 [P] Extend `.gitignore` to exclude large source/corpus data, raw logs, caches, local databases/sidecars, bulk exports, virtual environments and build outputs while preserving `.agents/`. Keep necessary curated reproducibility/acceptance reports in `reports/verification/` and pilot assessment summaries (for example `reports/pilots/<run_id>/assessment.md` and cohort `summary.md`/compact `summary.json`) committable through explicit scoped rules; do not blanket-ignore their parent directories or allow large raw telemetry through summary exceptions. Document artifact/allowlist boundaries and portable corpus delivery in `README.md`.
+- [x] T006 Review `docs/research_vimqa.md` and `docs/research.md` against the implementation boundaries; record source/fixture acquisition provenance in `tests/fixtures/manifest.json` without attributing this project's adaptations to ViMQA.
 
 **Checkpoint:** Dependency smoke checks succeed, test discovery works, and no corpus/pilot is started during setup.
 
 ## Phase 2: Foundational Contracts and Storage
 
+**Progress:** Complete T007–T014; fingerprint/storage/CLI/provider foundation checks: 9 passed. See [execution ledger](../reports/verification/implementation-ledger.md).
+
 **Goal:** Provide shared types, fingerprints, transactional storage and fixtures required by all stories.
 
-- [ ] T007 Define `SourceRevisionRef`, `RawRevision`, extraction/classification/pair/selection results, evidence keys and benchmark records in `backend/src/vimfc/domain.py`; preserve exact evidence fields and human annotation values.
-- [ ] T008 [P] Create versioned defaults in `configs/pipeline.json`, `configs/classification_rules.json`, `configs/extraction_rules.json`, and `configs/ranking_rules.json`; include the eight quotas, 80,000 initial target, snapshot input, partner caps and integer weights from the plan.
-- [ ] T009 Write fingerprint/transaction/migration tests in `tests/unit/test_fingerprints.py` and `tests/integration/test_storage.py`; assert stable canonical hashes, atomic completed-stage results, preserved previous runs and non-destructive annotation migrations.
-- [ ] T010 Implement writable builder/annotation schema creation and explicit transaction helpers in `backend/src/vimfc/storage/migrations.py` and `backend/src/vimfc/storage/pipeline_store.py`, with the tables/indexes in `docs/data-model.md`, one writer and foreign keys enabled.
-- [ ] T011 Implement raw cache object writes, hashes and snapshot/revision/stage lookup keys in `backend/src/vimfc/storage/raw_cache.py`; use compressed atomic files and distinguish durable raw reuse from version-dependent derived results.
-- [ ] T012 Create archived historical wikitext, Wikidata JSON, move/redirect, template and source-error fixtures under `tests/fixtures/`; include cross-document and single-document examples without treating synthetic fixtures as research data.
-- [ ] T013 Implement CLI skeleton, exit codes, config loading and immutable run fingerprints in `backend/src/vimfc/cli.py`; distinguish incompatible configuration, invalid arguments, operational failure and insufficient eligible supply.
-- [ ] T014 Verify foundation tests with `python -m pytest tests/unit/test_fingerprints.py tests/integration/test_storage.py`; record expected interface/schema contracts in `docs/contracts/interfaces.md` only if an implementation detail needs clarification consistent with the plan.
+- [x] T007 Define `SourceRevisionRef`, `RawRevision`, extraction/classification/pair/selection results, evidence keys and benchmark records in `backend/src/vimfc/domain.py`; preserve exact evidence fields and human annotation values.
+- [x] T008 [P] Create versioned defaults in `configs/pipeline.json`, `configs/classification_rules.json`, `configs/extraction_rules.json`, and `configs/ranking_rules.json`; include the eight quotas, 80,000 initial target, snapshot input, partner caps and integer weights from the plan.
+- [x] T009 Write fingerprint/transaction/migration tests in `tests/unit/test_fingerprints.py` and `tests/integration/test_storage.py`; assert stable canonical hashes, atomic completed-stage results, preserved previous runs and non-destructive annotation migrations.
+- [x] T010 Implement writable builder/annotation schema creation and explicit transaction helpers in `backend/src/vimfc/storage/migrations.py` and `backend/src/vimfc/storage/pipeline_store.py`, with the tables/indexes in `docs/data-model.md`, one writer and foreign keys enabled.
+- [x] T011 Implement raw cache object writes, hashes and snapshot/revision/stage lookup keys in `backend/src/vimfc/storage/raw_cache.py`; use compressed atomic files and distinguish durable raw reuse from version-dependent derived results.
+- [x] T012 Create archived historical wikitext, Wikidata JSON, move/redirect, template and source-error fixtures under `tests/fixtures/`; include cross-document and single-document examples without treating synthetic fixtures as research data.
+- [x] T013 Implement CLI skeleton, exit codes, config loading and immutable run fingerprints in `backend/src/vimfc/cli.py`; distinguish incompatible configuration, invalid arguments, operational failure and insufficient eligible supply.
+- [x] T014 Verify foundation tests with `python -m pytest tests/unit/test_fingerprints.py tests/integration/test_storage.py`; record expected interface/schema contracts in `docs/contracts/interfaces.md` only if an implementation detail needs clarification consistent with the plan.
 
 **Checkpoint:** Shared storage/types are usable. No annotation semantic validator or automatic label/hop logic exists.
 
 ## Phase 3: US1 - Build and Freeze the Reproducible Corpus (P1)
+
+**Progress:** Complete T015–T038 against controlled fixtures; see [US1 verification](../reports/verification/us1.md). No real research corpus has been collected or frozen.
 
 **Goal:** Implement snapshot acquisition, Full Lead extraction, classification, pair-aware selection and immutable corpus publication.
 
@@ -58,35 +84,37 @@
 
 ### Tests Before Implementation
 
-- [ ] T015 [P] [US1] Write historical acquisition tests in `tests/integration/test_snapshot_sources.py` for cutoff revision selection, one-page historical queries, known-revision batches, missing/deleted history, HTTP-200 maxlag and Retry-After.
-- [ ] T016 [P] [US1] Write historical identity tests in `tests/unit/test_identities.py` for moved titles, snapshot redirects, loop/depth bounds, ambiguous target ownership and current mappings that differ from historical ones.
-- [ ] T017 [P] [US1] Write lead/sentence tests in `tests/unit/test_extract.py` and `tests/unit/test_sentences.py` for multi-paragraph prose, heading boundaries, excluded components, NFC, abbreviations, unknown factual templates and direct lead-link provenance.
-- [ ] T018 [P] [US1] Write classification/quality tests in `tests/unit/test_classify.py` and `tests/unit/test_quality.py` for historical item association, P31/P279/P106 dependency closure, group overlap, unclassified outcomes and versioned eligibility rules.
-- [ ] T019 [P] [US1] Write pair/ranking tests in `tests/unit/test_pairs.py` and `tests/unit/test_rank.py` for compatible attributes, directed bridges, bounded deterministic partners, negative/positive scores and shortcut/redundancy signals.
-- [ ] T020 [P] [US1] Write selection tests in `tests/unit/test_select.py` for stable ties, useful partner retention, soft quotas, subtype diversity, hub penalties, exact cardinality and insufficient supply without threshold relaxation.
-- [ ] T021 [P] [US1] Write freeze tests in `tests/integration/test_freeze.py` for 19,999/20,000/20,001 selections, metadata/revision errors, sentence gaps, body-only edges, standalone transfer and refusal to overwrite a frozen version.
+- [x] T015 [P] [US1] Write historical acquisition tests in `tests/integration/test_snapshot_sources.py` for cutoff revision selection, one-page historical queries, known-revision batches, missing/deleted history, HTTP-200 maxlag and Retry-After.
+- [x] T016 [P] [US1] Write historical identity tests in `tests/unit/test_identities.py` for moved titles, snapshot redirects, loop/depth bounds, ambiguous target ownership and current mappings that differ from historical ones.
+- [x] T017 [P] [US1] Write lead/sentence tests in `tests/unit/test_extract.py` and `tests/unit/test_sentences.py` for multi-paragraph prose, heading boundaries, excluded components, NFC, abbreviations, unknown factual templates and direct lead-link provenance.
+- [x] T018 [P] [US1] Write classification/quality tests in `tests/unit/test_classify.py` and `tests/unit/test_quality.py` for historical item association, P31/P279/P106 dependency closure, group overlap, unclassified outcomes and versioned eligibility rules.
+- [x] T019 [P] [US1] Write pair/ranking tests in `tests/unit/test_pairs.py` and `tests/unit/test_rank.py` for compatible attributes, directed bridges, bounded deterministic partners, negative/positive scores and shortcut/redundancy signals.
+- [x] T020 [P] [US1] Write selection tests in `tests/unit/test_select.py` for stable ties, useful partner retention, soft quotas, subtype diversity, hub penalties, exact cardinality and insufficient supply without threshold relaxation.
+- [x] T021 [P] [US1] Write freeze tests in `tests/integration/test_freeze.py` for 19,999/20,000/20,001 selections, metadata/revision errors, sentence gaps, body-only edges, standalone transfer and refusal to overwrite a frozen version.
 
 ### Implementation
 
-- [ ] T022 [US1] Implement the shared MediaWiki client in `backend/src/vimfc/source/mediawiki.py`: persistent connections, User-Agent/contact, full continuation objects, one request per host, maxlag, typed errors and bounded retries; run T015 tests.
-- [ ] T023 [US1] Implement `select_revision` and `fetch_revisions` in `backend/src/vimfc/source/revisions.py`; verify timestamps/content IDs/hashes, cache historical lookups, batch known contents and never replace absent history with live content.
-- [ ] T024 [US1] Implement snapshot title/redirect resolution in `backend/src/vimfc/source/identities.py`; preserve move/redirect provenance, normalized page identities and unresolved targets, with no invented graph edges; run T016 tests.
-- [ ] T025 [US1] Implement historical Wikidata access in `backend/src/vimfc/source/wikidata.py`; validate historical sitelinks and cache referenced class/occupation revisions under the same snapshot rather than using live metadata.
-- [ ] T026 [US1] Implement deterministic category/namespace candidate streams in `backend/src/vimfc/pipeline/collect.py`; archive discovery order/cursors, deduplicate canonical identities and support the initial 80,000 manifest plus same-snapshot extensions.
-- [ ] T027 [US1] Implement `extract_lead` in `backend/src/vimfc/pipeline/extract.py` using historical raw AST nodes, retained prose/link boundaries and the configured argument-only historical-safe formatters; unresolved factual templates quarantine the article rather than truncate its meaning.
-- [ ] T028 [US1] Implement paragraph/statistics storage and deterministic sentence splitting in `backend/src/vimfc/pipeline/sentences.py`; assign contiguous zero-based IDs and preserve exact normalized text under a versioned extractor; run T017 tests.
-- [ ] T029 [US1] Implement historical group/subtype classification in `backend/src/vimfc/pipeline/classify.py` and reviewed QID mappings in `configs/classification_rules.json`; retain revision-backed paths, overlap precedence and explicit truncation/unclassified reasons; run T018 tests.
-- [ ] T030 [US1] Implement eligibility and factual-quality signals in `backend/src/vimfc/pipeline/quality.py` and `configs/extraction_rules.json`; record every rejection and treat documented thresholds as versioned settings, not silent quantity-driven adjustments.
-- [ ] T031 [US1] Implement sparse bridge/comparison blocks in `backend/src/vimfc/pipeline/pairs.py`; use lead-only relations and compatible lead attributes, cap ranking partners without truncating the complete operational lead-link data; run pair-generation tests.
-- [ ] T032 [US1] Implement fixed-point features/scores in `backend/src/vimfc/pipeline/rank.py`; retain feature contributions, source sentence/rule provenance, omitted-pair counts and score versions; do not generate claims or infer human hops.
-- [ ] T033 [US1] Implement graph-aware deterministic greedy selection in `backend/src/vimfc/pipeline/select.py`; maintain incremental partner/group/subtype gains, sparse adjacency, stable page-ID tie breaks and exact-20,000 or shortage outcomes; run T020 tests.
-- [ ] T034 [US1] Implement corpus report generation in `backend/src/vimfc/pipeline/report.py`: connectivity, subtype/group deviations, bridge/comparison counts and external reviewed/valid yield ingestion; keep yield unassessed when no actual human assessment exists.
-- [ ] T035 [US1] Implement immutable package construction in `backend/src/vimfc/pipeline/freeze.py`; validate source/extraction/graph invariants, store all selected prose/sentences and outside lead targets, derive internal directed edges, close/checkpoint storage and atomically publish a new standalone database/manifest.
-- [ ] T036 [US1] Implement corpus read/verify primitives in `backend/src/vimfc/storage/corpus_store.py`; open `mode=ro`, check version/count/hash/integrity and never use `immutable=1` without an actual immutability guarantee.
-- [ ] T037 [US1] Wire builder/verify/report commands in `backend/src/vimfc/cli.py` to the implemented interfaces, keeping cohort execution bounded by the orchestration added in US2; no CLI path may implicitly initiate production.
-- [ ] T038 [US1] Run the US1 fixture suites and record results in `reports/verification/us1.md`; prove lead-only internal edges, replayed selection and portable frozen fixture storage, explicitly stating that real corpus collection remains incomplete.
+- [x] T022 [US1] Implement the shared MediaWiki client in `backend/src/vimfc/source/mediawiki.py`: persistent connections, User-Agent/contact, full continuation objects, one request per host, maxlag, typed errors and bounded retries; run T015 tests.
+- [x] T023 [US1] Implement `select_revision` and `fetch_revisions` in `backend/src/vimfc/source/revisions.py`; verify timestamps/content IDs/hashes, cache historical lookups, batch known contents and never replace absent history with live content.
+- [x] T024 [US1] Implement snapshot title/redirect resolution in `backend/src/vimfc/source/identities.py`; preserve move/redirect provenance, normalized page identities and unresolved targets, with no invented graph edges; run T016 tests.
+- [x] T025 [US1] Implement historical Wikidata access in `backend/src/vimfc/source/wikidata.py`; validate historical sitelinks and cache referenced class/occupation revisions under the same snapshot rather than using live metadata.
+- [x] T026 [US1] Implement deterministic category/namespace candidate streams in `backend/src/vimfc/pipeline/collect.py`; archive discovery order/cursors, deduplicate canonical identities and support the initial 80,000 manifest plus same-snapshot extensions.
+- [x] T027 [US1] Implement `extract_lead` in `backend/src/vimfc/pipeline/extract.py` using historical raw AST nodes, retained prose/link boundaries and the configured argument-only historical-safe formatters; unresolved factual templates quarantine the article rather than truncate its meaning.
+- [x] T028 [US1] Implement paragraph/statistics storage and deterministic sentence splitting in `backend/src/vimfc/pipeline/sentences.py`; assign contiguous zero-based IDs and preserve exact normalized text under a versioned extractor; run T017 tests.
+- [x] T029 [US1] Implement historical group/subtype classification in `backend/src/vimfc/pipeline/classify.py` and reviewed QID mappings in `configs/classification_rules.json`; retain revision-backed paths, overlap precedence and explicit truncation/unclassified reasons; run T018 tests.
+- [x] T030 [US1] Implement eligibility and factual-quality signals in `backend/src/vimfc/pipeline/quality.py` and `configs/extraction_rules.json`; record every rejection and treat documented thresholds as versioned settings, not silent quantity-driven adjustments.
+- [x] T031 [US1] Implement sparse bridge/comparison blocks in `backend/src/vimfc/pipeline/pairs.py`; use lead-only relations and compatible lead attributes, cap ranking partners without truncating the complete operational lead-link data; run pair-generation tests.
+- [x] T032 [US1] Implement fixed-point features/scores in `backend/src/vimfc/pipeline/rank.py`; retain feature contributions, source sentence/rule provenance, omitted-pair counts and score versions; do not generate claims or infer human hops.
+- [x] T033 [US1] Implement graph-aware deterministic greedy selection in `backend/src/vimfc/pipeline/select.py`; maintain incremental partner/group/subtype gains, sparse adjacency, stable page-ID tie breaks and exact-20,000 or shortage outcomes; run T020 tests.
+- [x] T034 [US1] Implement corpus report generation in `backend/src/vimfc/pipeline/report.py`: connectivity, subtype/group deviations, bridge/comparison counts and external reviewed/valid yield ingestion; keep yield unassessed when no actual human assessment exists.
+- [x] T035 [US1] Implement immutable package construction in `backend/src/vimfc/pipeline/freeze.py`; validate source/extraction/graph invariants, store all selected prose/sentences and outside lead targets, derive internal directed edges, close/checkpoint storage and atomically publish a new standalone database/manifest.
+- [x] T036 [US1] Implement corpus read/verify primitives in `backend/src/vimfc/storage/corpus_store.py`; open `mode=ro`, check version/count/hash/integrity and never use `immutable=1` without an actual immutability guarantee.
+- [x] T037 [US1] Wire builder/verify/report commands in `backend/src/vimfc/cli.py` to the implemented interfaces, keeping cohort execution bounded by the orchestration added in US2; no CLI path may implicitly initiate production.
+- [x] T038 [US1] Run the US1 fixture suites and record results in `reports/verification/us1.md`; prove lead-only internal edges, replayed selection and portable frozen fixture storage, explicitly stating that real corpus collection remains incomplete.
 
 ## Phase 4: US2 - Resume, Measure Pilots, and Gate Production (P1)
+
+**Progress:** T039–T049 complete, including the authorized real pilot 100 and its [verified assessment](../reports/pilots/b0243673-5f0b-4ac6-b8b3-0ca7aa74ccc6/100/summary.md). Phase remains open: T050–T053 are unchecked and unapproved. Stop after pilot 100; investigate extraction/classification yield before scaling.
 
 **Goal:** Make collection interruptible/idempotent, instrument performance and template quality, and enforce the user-controlled production transition.
 
@@ -94,16 +122,16 @@
 
 **Independent test:** Interrupted compatible runs reuse valid work; incompatible runs preserve old outputs and fail clearly. Pilot commands stop at their requested cohort, produce auditable metrics and cannot cross into production automatically.
 
-- [ ] T039 [P] [US2] Write interruption/resume tests in `tests/integration/test_resume.py` for durable blob vs stage commit, expired leases, duplicate candidate prevention, persisted retry eligibility, changed fingerprints and raw-only reuse in a new run.
-- [ ] T040 [P] [US2] Write pilot-gate/report tests in `tests/integration/test_pilot_controls.py` for 100/1,000/10,000 bounds, staged cohort progression, missing/stale report rejection, critical defects and no production calls after pilot completion.
-- [ ] T041 [P] [US2] Write metrics/template-audit tests in `tests/unit/test_pilot_report.py` for correct denominators, cached vs new work, overlapped elapsed time, distinct affected-template article counts and provisional extraction outputs excluded from validated data.
-- [ ] T042 [US2] Implement stage dependency fingerprints, worker leases, atomic result/state commits and compatible resume in `backend/src/vimfc/pipeline/runner.py` and `backend/src/vimfc/storage/pipeline_store.py`; rerun T039 tests.
-- [ ] T043 [US2] Implement retry/requeue and incompatible-run reuse commands in `backend/src/vimfc/cli.py`; preserve old config/results, reuse only matching inputs and ensure retry/extend cannot escape pilot bounds or start unapproved production.
-- [ ] T044 [US2] Add bounded-stage orchestration, request/cache/error counters and rolling progress/ETA in `backend/src/vimfc/pipeline/runner.py` and `backend/src/vimfc/pipeline/report.py`; distinguish candidate work from dependency requests and rejection outcomes.
-- [ ] T045 [US2] Implement pilot CPU/RAM/disk sampling and report serialization in `backend/src/vimfc/pipeline/report.py`, with required instrumentation dependencies in `backend/pyproject.toml`; record machine environment, sampling interval, stage time/throughput, cache/retry/error rates and qualified 80,000 ETA assumptions.
-- [ ] T046 [US2] Implement per-pilot template diagnostics in `backend/src/vimfc/pipeline/extract.py` and `backend/src/vimfc/pipeline/report.py`; report success/unresolved counts, top failing templates and archived examples, plus effects on complete leads, sentence IDs and lead graph.
-- [ ] T047 [US2] Implement `pipeline pilot`, pilot report selection and deliberate `--production --pilot-report` enforcement in `backend/src/vimfc/cli.py`; persist reviewed report/run/version identity without treating report completion as the user's decision.
-- [ ] T048 [US2] Verify all resume/gate/metrics fixture suites and save results in `reports/verification/us2.md`; assert no pilot diagnostics bypass the real 20,000 freeze gate and no stale-rule report authorizes production.
+- [x] T039 [P] [US2] Write interruption/resume tests in `tests/integration/test_resume.py` for durable blob vs stage commit, expired leases, duplicate candidate prevention, persisted retry eligibility, changed fingerprints and raw-only reuse in a new run.
+- [x] T040 [P] [US2] Write pilot-gate/report tests in `tests/integration/test_pilot_controls.py` for 100/1,000/10,000 bounds, staged cohort progression, missing/stale report rejection, critical defects and no production calls after pilot completion.
+- [x] T041 [P] [US2] Write metrics/template-audit tests in `tests/unit/test_pilot_report.py` for correct denominators, cached vs new work, overlapped elapsed time, distinct affected-template article counts and provisional extraction outputs excluded from validated data.
+- [x] T042 [US2] Implement stage dependency fingerprints, worker leases, atomic result/state commits and compatible resume in `backend/src/vimfc/pipeline/runner.py` and `backend/src/vimfc/storage/pipeline_store.py`; rerun T039 tests.
+- [x] T043 [US2] Implement retry/requeue and incompatible-run reuse commands in `backend/src/vimfc/cli.py`; preserve old config/results, reuse only matching inputs and ensure retry/extend cannot escape pilot bounds or start unapproved production.
+- [x] T044 [US2] Add bounded-stage orchestration, request/cache/error counters and rolling progress/ETA in `backend/src/vimfc/pipeline/runner.py` and `backend/src/vimfc/pipeline/report.py`; distinguish candidate work from dependency requests and rejection outcomes.
+- [x] T045 [US2] Implement pilot CPU/RAM/disk sampling and report serialization in `backend/src/vimfc/pipeline/report.py`, with required instrumentation dependencies in `backend/pyproject.toml`; record machine environment, sampling interval, stage time/throughput, cache/retry/error rates and qualified 80,000 ETA assumptions.
+- [x] T046 [US2] Implement per-pilot template diagnostics in `backend/src/vimfc/pipeline/extract.py` and `backend/src/vimfc/pipeline/report.py`; report success/unresolved counts, top failing templates and archived examples, plus effects on complete leads, sentence IDs and lead graph.
+- [x] T047 [US2] Implement `pipeline pilot`, pilot report selection and deliberate `--production --pilot-report` enforcement in `backend/src/vimfc/cli.py`; persist reviewed report/run/version identity without treating report completion as the user's decision.
+- [x] T048 [US2] Verify all resume/gate/metrics fixture suites and save results in `reports/verification/us2.md`; assert no pilot diagnostics bypass the real 20,000 freeze gate and no stale-rule report authorizes production.
 
 ### Manual Pilot Start Gate - Before T049
 
@@ -111,7 +139,7 @@ Complete the builder implementation and required fixture tests through T048, sum
 
 This gate authorizes neither production nor a smaller frozen corpus. The separate **Production Approval Gate at T097 remains unchanged** and still requires the user's later decision after reviewing final pilot results.
 
-- [ ] T049 [US2] Only after the Manual Pilot Start Gate is released by the user's explicit request, run the bounded 100-candidate cohort and save its performance/template audit in `reports/pilots/<run_id>/100/`; use the fixed snapshot and stop at the cohort boundary.
+- [x] T049 [US2] Only after the Manual Pilot Start Gate is released by the user's explicit request, run the bounded 100-candidate cohort and save its performance/template audit in `reports/pilots/<run_id>/100/`; use the fixed snapshot and stop at the cohort boundary.
 - [ ] T050 [US2] Run the bounded 1,000-candidate cohort and save readable/machine-readable reports in `reports/pilots/<run_id>/1000/`; identify bottlenecks and provide stage timing, articles/minute, API/cache/retry/error counts/rates, CPU/RAM/disk and uncertainty-qualified production ETA.
 - [ ] T051 [US2] If common unsupported factual templates need support, add tested historical-safe formatters in `backend/src/vimfc/pipeline/extract.py` and `tests/unit/test_extract.py`; create a new versioned run, reuse compatible raw data and regenerate affected extraction/graph/filter/pair/rank/selection and pilot reports before claiming final-rule validation.
 - [ ] T052 [US2] Run the bounded 10,000-candidate cohort with the final evaluated rules and save reports in `reports/pilots/<run_id>/10000/`; assess scaling, stability, checkpoint/resume and pair quality, with no live-template substitution or automatic production expansion.
