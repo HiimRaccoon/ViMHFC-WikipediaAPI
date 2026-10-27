@@ -9,6 +9,8 @@ class DependencySource:
         self.source,self.snapshot,self.rules=source,snapshot,rules
 
     def _item(self,qid,raw):
+        quarantine=getattr(self.source,'reviewed_quarantine',None)
+        if quarantine:quarantine.check(raw.ref)
         try:
             ref=raw.ref;entity=json.loads(raw.content)
             if (ref.site!='wikidata' or ref.identity!=qid or ref.snapshot!=self.snapshot
@@ -24,7 +26,10 @@ class DependencySource:
             node_identity(qid,result,self.snapshot)
             return result
         except (ValueError,TypeError,KeyError,AttributeError,SourceUnavailable) as error:
-            raise SourceUnavailable('Invalid required historical cache/metadata',code='invalid_historical_cache',details={'qid':qid,'cause':str(error)}) from error
+            failure=SourceUnavailable('Invalid required historical cache/metadata',code='invalid_historical_cache',details={'qid':qid,'cause':str(error)})
+            guard=getattr(self.source,'integrity_guard',None)
+            if guard:guard(failure)
+            raise failure from error
 
     def acquire(self,article,qid):
         if self.rules.get('dependency_policy',{}).get('version')=='primary-first-1':
@@ -81,6 +86,9 @@ class DependencySource:
                 raise SourceUnavailable('Manifest lacks retrieval metadata',code='dependency_input_missing',details={'qid':node['qid'],'role':role(node['qid'])})
             ref=SourceRevisionRef('wikidata',node['qid'],node['page_id'],node['qid'],node['revision_id'],node['revision_timestamp'],self.snapshot)
             refs.append(ref)
+        quarantine=getattr(self.source,'reviewed_quarantine',None)
+        if quarantine:
+            for ref in refs:quarantine.check(ref)
         if not allow_fetch:
             for ref in refs:
                 row=self.source.store.db.execute('SELECT record_json FROM source_revisions WHERE site=? AND revision_id=?',('wikidata',ref.revision_id)).fetchone()
@@ -110,7 +118,7 @@ class DependencySource:
                 if error.retryable:
                     error.details.update(details)
                     raise
-                invalid=error.code in ('invalid_historical_cache','dependency_input_invalid','source_unavailable')
+                invalid=error.code in ('invalid_historical_cache','dependency_input_invalid','source_unavailable','source_hash_mismatch')
                 raise SourceUnavailable('Declared manifest artifacts could not be materialized',code='dependency_input_invalid' if invalid else 'dependency_input_missing',details=details) from error
             except (ValueError,TypeError,KeyError,OSError,AttributeError) as error:
                 raise SourceUnavailable('Required manifest artifact is invalid',code='dependency_input_invalid',details={'manifest_id':manifest['manifest_id'],'cause':str(error)}) from error

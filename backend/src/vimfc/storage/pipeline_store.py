@@ -32,13 +32,17 @@ class PipelineStore:
         CREATE TABLE IF NOT EXISTS pilot_reports (run_id TEXT NOT NULL,size INTEGER NOT NULL,report_json TEXT NOT NULL,PRIMARY KEY(run_id,size));
         CREATE TABLE IF NOT EXISTS source_failures (site TEXT NOT NULL,identity TEXT NOT NULL,snapshot TEXT NOT NULL,operation TEXT NOT NULL,error_json TEXT NOT NULL,retry_at TEXT,retryable INTEGER NOT NULL,recorded_at TEXT NOT NULL,PRIMARY KEY(site,identity,snapshot,operation));
         CREATE TABLE IF NOT EXISTS api_cooldowns (site TEXT PRIMARY KEY,retry_at TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS host_circuits (site TEXT PRIMARY KEY,state TEXT NOT NULL,consecutive_failures INTEGER NOT NULL DEFAULT 0,next_retry_at TEXT,last_observed_at TEXT,last_code TEXT,last_message TEXT,probe_token TEXT,probe_until TEXT);
         CREATE TABLE IF NOT EXISTS dependency_manifests (manifest_id TEXT PRIMARY KEY,record_json TEXT NOT NULL,created_at TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS article_manifests (run_id TEXT NOT NULL REFERENCES pipeline_runs,page_id INTEGER NOT NULL,request_hash TEXT NOT NULL,manifest_id TEXT NOT NULL REFERENCES dependency_manifests,PRIMARY KEY(run_id,page_id));
         CREATE TABLE IF NOT EXISTS historical_item_hints (run_id TEXT NOT NULL REFERENCES pipeline_runs,page_id INTEGER NOT NULL,article_hash TEXT NOT NULL,qid TEXT NOT NULL,PRIMARY KEY(run_id,page_id));
+        CREATE TABLE IF NOT EXISTS candidate_work (run_id TEXT NOT NULL REFERENCES pipeline_runs,page_id INTEGER NOT NULL,status TEXT NOT NULL,record_json TEXT NOT NULL,next_retry_at TEXT,attempt_count INTEGER NOT NULL DEFAULT 0,updated_at TEXT NOT NULL,PRIMARY KEY(run_id,page_id));
         PRAGMA user_version=1;
         ''')
         if 'lease_token' not in {r['name'] for r in self.db.execute('PRAGMA table_info(stage_results)')}:
             self.db.execute('ALTER TABLE stage_results ADD COLUMN lease_token TEXT')
+        if 'error_json' not in {r['name'] for r in self.db.execute('PRAGMA table_info(stage_results)')}:
+            self.db.execute('ALTER TABLE stage_results ADD COLUMN error_json TEXT')
 
     def __enter__(self):
         return self
@@ -72,7 +76,7 @@ class PipelineStore:
                             (run_id, utc(snapshot), canonical(config), digest(config), 'collecting', stamp, stamp, reuse_run))
             # A new extraction/ranking run replays the archived cohort, rather
             # than depending on today's live discovery results.
-            if previous and previous['snapshot']==utc(snapshot) and all(previous['config'].get(k)==config.get(k) for k in ('seed','streams','namespace_prefixes')):
+            if previous and previous['snapshot']==utc(snapshot) and all(previous['config'].get(k)==config.get(k) for k in ('seed','streams','namespace_prefixes','discovery')):
                 self.db.execute('INSERT INTO candidates SELECT ?,canonical_page_id,discovery_order,record_json FROM candidates WHERE run_id=?',(run_id,reuse_run))
                 self.db.execute('INSERT INTO discovery_streams SELECT ?,stream_id,state_json FROM discovery_streams WHERE run_id=?',(run_id,reuse_run))
                 self.db.execute('INSERT INTO candidate_lookups SELECT ?,wiki,normalized_title,record_json FROM candidate_lookups WHERE run_id=?',(run_id,reuse_run))
@@ -103,7 +107,7 @@ class PipelineStore:
 
     def complete(self, run_id, identity, stage, dep, result):
         self.db.execute('''INSERT INTO stage_results (run_id,identity,stage,dependency_hash,status,result_json,result_hash) VALUES (?,?,?,?,'completed',?,?)
-        ON CONFLICT(run_id,identity,stage,dependency_hash) DO UPDATE SET status='completed',result_json=excluded.result_json,result_hash=excluded.result_hash,lease_until=NULL,last_error=NULL,next_retry_at=NULL''', (run_id,str(identity),stage,dep,canonical(result),digest(result)))
+        ON CONFLICT(run_id,identity,stage,dependency_hash) DO UPDATE SET status='completed',result_json=excluded.result_json,result_hash=excluded.result_hash,lease_until=NULL,last_error=NULL,next_retry_at=NULL,error_json=NULL''', (run_id,str(identity),stage,dep,canonical(result),digest(result)))
 
     def candidates(self, run_id, limit=None):
         rows = self.db.execute('SELECT record_json FROM candidates WHERE run_id=? ORDER BY discovery_order,canonical_page_id LIMIT ?', (run_id,limit if limit is not None else -1))

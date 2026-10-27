@@ -47,9 +47,10 @@ def test_transient_failure_is_persisted_and_not_immediately_retried(tmp_path):
         with pytest.raises(SourceUnavailable):
             StageExecutor(store,run).execute('raw','1',{},fail)
         row=store.db.execute('SELECT status,next_retry_at,attempt_count FROM stage_results').fetchone()
-        assert row['status']=='failed' and row['next_retry_at'] and row['attempt_count']==1
-        with pytest.raises(SourceUnavailable,match='retry'):
+        assert row['status']=='deferred' and row['next_retry_at'] and row['attempt_count']==1
+        with pytest.raises(SourceUnavailable,match='rate limited') as error:
             StageExecutor(store,run).execute('raw','1',{},lambda:{})
+        assert error.value.retryable and error.value.retry_at==row['next_retry_at']
 
 
 def test_stale_worker_cannot_overwrite_a_new_owner_result(tmp_path):

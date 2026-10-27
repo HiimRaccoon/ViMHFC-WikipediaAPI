@@ -66,7 +66,8 @@ def test_audit_counts_extraction_completed_before_downstream_source_failure(tmp_
         report=Builder(store,run,Provider(),tmp_path/'reports').pilot(100)
         assert report['template_audit']['attempted']==100
         assert report['template_audit']['successful']==100
-        assert report['source_failure_count']==100
+        assert report['source_failure_count']==0
+        assert report['deferred_count']==100 and not report['data_complete']
 
 
 def test_warm_report_counts_only_this_invocations_source_requests(tmp_path,config):

@@ -29,6 +29,9 @@ def parser():
         if action=='pilot':
             p.add_argument('--candidates',type=int,choices=(100,1000,10000),required=True)
             p.add_argument('--progress',action='store_true')
+            p.add_argument('--max-wait-seconds',type=int,default=60,help='Total scheduler sleep budget (0..3600); HTTP timeouts/backoff are separate')
+            p.add_argument('--retry-rounds',type=int,default=2,help='Additional due-only candidate passes (0..5)')
+            p.add_argument('--deferred-only',action='store_true',help='Retry only deferred candidates; validate/reuse completed checkpoints without API recovery')
         if action=='run':
             p.add_argument('--production',action='store_true',required=True)
             p.add_argument('--pilot-report')
@@ -81,7 +84,11 @@ def main(argv=None):
             if args.action=='status':
                 rows=store.db.execute('SELECT stage,status,count(*) AS count FROM stage_results WHERE run_id=? GROUP BY stage,status',(args.run,)).fetchall()
                 progress=store.db.execute("SELECT record_json FROM run_events WHERE run_id=? AND stage='progress' ORDER BY event_id DESC LIMIT 1",(args.run,)).fetchone()
+                queue=store.db.execute('SELECT status,count(*) AS count FROM candidate_work WHERE run_id=? GROUP BY status',(args.run,)).fetchall()
+                cooldowns=[dict(r) for r in store.db.execute('SELECT site,retry_at FROM api_cooldowns')]
                 _print({'run_id':args.run,'snapshot':run['snapshot'],'config_hash':run['config_hash'],'status':run['status'],'candidate_count':len(store.candidates(args.run)),
+                    'candidate_work_counts':{r['status']:r['count'] for r in queue},'host_cooldowns':cooldowns,
+                    'host_circuits':[{k:r[k] for k in ('site','state','consecutive_failures','next_retry_at','last_code','last_observed_at')} for r in store.db.execute('SELECT * FROM host_circuits')],
                     'stage_counts':[dict(r) for r in rows],'dependency_manifest_count':store.db.execute('SELECT count(*) FROM article_manifests WHERE run_id=?',(args.run,)).fetchone()[0],
                     'production_authorized':bool(run['production_report']),'progress':json.loads(progress[0]) if progress else {'speed_per_minute':None,'eta_seconds':None}})
                 return 0
@@ -90,8 +97,9 @@ def main(argv=None):
             from .pipeline.runner import Builder,PilotControls
             if args.action=='retry':
                 # Requeue only eligible transient failures, without running acquisition.
-                updated=store.db.execute("UPDATE stage_results SET status='pending',last_error=NULL,next_retry_at=NULL,lease_until=NULL WHERE run_id=? AND status IN ('failed','pending') AND next_retry_at IS NOT NULL AND julianday(next_retry_at)<=julianday(?)",(args.run,now())).rowcount
-                _print({'requeued':updated,'message':'Run the same bounded pilot explicitly to resume. Retry does not start collection.'})
+                updated=store.db.execute("UPDATE stage_results SET status='pending',last_error=NULL,next_retry_at=NULL,lease_until=NULL WHERE run_id=? AND status IN ('failed','pending','deferred') AND next_retry_at IS NOT NULL AND julianday(next_retry_at)<=julianday(?) AND (lease_until IS NULL OR julianday(lease_until)<=julianday(?))",(args.run,now(),now())).rowcount
+                due=store.db.execute("SELECT count(*) FROM candidate_work WHERE run_id=? AND status='deferred' AND julianday(next_retry_at)<=julianday(?)",(args.run,now())).fetchone()[0]
+                _print({'requeued':updated,'due_deferred_candidates':due,'message':'The same bounded pilot automatically retries due stages. This command does not start collection or bypass Retry-After/negative-hint TTL.'})
                 return 0
             if args.action=='report':
                 from .pipeline.report import corpus_report,template_audit,classification_audit,pair_generation_audit
@@ -103,9 +111,16 @@ def main(argv=None):
                 else:
                     # Include the latest pending result too; never instantiate a source provider.
                     rows=store.db.execute("SELECT identity,result_json FROM stage_results WHERE run_id=? AND stage='process' AND result_json IS NOT NULL ORDER BY rowid",(args.run,))
-                    records=list({r[0]:json.loads(r[1]) for r in rows}.values())
+                    saved={r[0]:json.loads(r[1]) for r in rows}
+                    quarantined=[json.loads(r[0]) for r in store.db.execute("SELECT record_json FROM candidate_work WHERE run_id=? AND status='quarantined_integrity'",(args.run,))]
+                    # A preserved historical stage is not permission to revive
+                    # evidence refused by a reviewed operational quarantine.
+                    blocked={r['page_id'] for r in quarantined}
+                    saved.update({str(r['page_id']):r for r in quarantined})
+                    records=list(saved.values())
                     articles=[r for r in records if r.get('quality',{}).get('eligible')]
-                    pairs=[json.loads(r[0]) for r in store.db.execute('SELECT record_json FROM pair_candidates WHERE run_id=?',(args.run,))]
+                    pairs=[p for r in store.db.execute('SELECT record_json FROM pair_candidates WHERE run_id=?',(args.run,))
+                        if (p:=json.loads(r[0]))['endpoint_a'] not in blocked and p['endpoint_b'] not in blocked]
                     report={'run_id':args.run,'corpus':corpus_report(articles,pairs,run['config']['quotas'],assessment),'template_audit':template_audit(records,len(store.candidates(args.run))),
                         'classification_audit':classification_audit(records,len(store.candidates(args.run)),run['config']['classification']),
                         'pair_audit':pair_generation_audit(records,pairs,run['config']['ranking'])}
@@ -113,6 +128,14 @@ def main(argv=None):
                     report['dependency_manifest_audit'],report['fingerprint_audit']=dependency_audits(records,store,run)
                     from .pipeline.manifest_report import subtype_audit
                     report['subtype_audit']=subtype_audit(records)
+                    report['work_audit']={'articles':[json.loads(r[0]) for r in store.db.execute('SELECT record_json FROM candidate_work WHERE run_id=? ORDER BY page_id',(args.run,))]}
+                    report['data_complete']=False
+                    report['quarantined_count']=len(quarantined)
+                    if quarantined:
+                        report['quarantine_audit']={'quarantined_count':len(quarantined),'articles':quarantined,
+                            'integrity_complete':False,'report_scope':'persisted_operational_receipts'}
+                    report['pilot_accepted']=False
+                    report['report_scope']='checkpoint_only_not_pilot_acceptance'
                 if args.output:
                     path=Path(args.output)
                     path.parent.mkdir(parents=True,exist_ok=True)
@@ -153,10 +176,18 @@ def main(argv=None):
             with MediaWikiClient(run['config']['contact'],user_agent=run['config'].get('user_agent') or 'ViMFC/0.1') as client:
                 provider=HistoricalProvider(store,args.run,client,RawCache(Path(args.database).parent/'raw'))
                 progress=(lambda record:print(canonical(record),file=sys.stderr,flush=True)) if getattr(args,'progress',False) else None
-                builder=Builder(store,args.run,provider,progress=progress)
+                builder=Builder(store,args.run,provider,progress=progress,
+                    max_wait_seconds=getattr(args,'max_wait_seconds',0),retry_rounds=getattr(args,'retry_rounds',0),
+                    deferred_only=getattr(args,'deferred_only',False))
                 if args.action=='pilot':
                     report=builder.pilot(args.candidates)
-                    _print({'run_id':args.run,'size':args.candidates,'completed':report['completed'],'message':'STOP. Inspect reports before explicitly requesting the next cohort. Production has not started.'})
+                    result={'run_id':args.run,'size':args.candidates,'completed':report['completed'],
+                        'data_complete':report['data_complete'],'pilot_accepted':report['pilot_accepted'],
+                        'work_counts':report['work_counts'],'paused':report.get('paused',False),
+                        'message':'STOP. Exit 5 means incomplete data; exit 0 is not pilot acceptance. Inspect reports before requesting another cohort.'}
+                    if report.get('paused'):result.update(host_health=report['host_health'],health_report_path=report['health_report_path'])
+                    _print(result)
+                    return 0 if report['data_complete'] else 5
                 elif args.action=='run':
                     _print(builder.production(reviewed))
                 elif args.action=='extend':

@@ -1,0 +1,160 @@
+{
+  "scope": "Hand-labelled safe positive-attribute signal controls; negatives include negation, invalid dates and unsupported attribute bindings. Not a population precision estimate or claim validation.",
+  "cases": [
+    {
+      "id": "birth",
+      "text": "Ông sinh ngày 4 tháng 9 năm 2000.",
+      "expected_signal": true
+    },
+    {
+      "id": "founded",
+      "text": "Trường được thành lập năm 1999.",
+      "expected_signal": true
+    },
+    {
+      "id": "event",
+      "text": "Lễ hội diễn ra năm 2004.",
+      "expected_signal": true
+    },
+    {
+      "id": "employment",
+      "text": "Ông gia nhập [[Viện A]] năm 2001.",
+      "expected_signal": true
+    },
+    {
+      "id": "release",
+      "text": "Album được phát hành ngày 4 tháng 9 năm 2006.",
+      "expected_signal": true
+    },
+    {
+      "id": "publication",
+      "text": "Sách được xuất bản năm 2010.",
+      "expected_signal": true
+    },
+    {
+      "id": "start",
+      "text": "Giải khởi tranh ngày 31 tháng 12 năm 2011.",
+      "expected_signal": true
+    },
+    {
+      "id": "end",
+      "text": "Giải kết thúc ngày 19 tháng 8 năm 2012.",
+      "expected_signal": true
+    },
+    {
+      "id": "height",
+      "text": "Tòa nhà cao 400 m.",
+      "expected_signal": true
+    },
+    {
+      "id": "count",
+      "text": "Giải đấu có 14 câu lạc bộ tham dự.",
+      "expected_signal": true
+    },
+    {
+      "id": "decimal",
+      "text": "Tòa nhà cao 2,5 m.",
+      "expected_signal": true
+    },
+    {
+      "id": "unlinked_place",
+      "text": "Ông làm việc tại Hà Nội.",
+      "expected_signal": true
+    },
+    {
+      "id": "introduced",
+      "text": "Giải thưởng được giới thiệu vào năm 1954.",
+      "expected_signal": true
+    },
+    {
+      "id": "negated_birth",
+      "text": "Ông không sinh năm 2000.",
+      "expected_signal": false
+    },
+    {
+      "id": "conditional_founding",
+      "text": "Nếu được thành lập năm 2010, trường sẽ có nhiều sinh viên.",
+      "expected_signal": false
+    },
+    {
+      "id": "empty_employment",
+      "text": "Phòng có tiện nghi cho sinh hoạt và làm việc.",
+      "expected_signal": false
+    },
+    {
+      "id": "empty_event",
+      "text": "Bài viết nhắc đến khái niệm tổ chức.",
+      "expected_signal": false
+    },
+    {
+      "id": "invalid_birth",
+      "text": "Ông sinh ngày 31 tháng 2 năm 2000.",
+      "expected_signal": false
+    },
+    {
+      "id": "invalid_release",
+      "text": "Album phát hành ngày 31/02/2010.",
+      "expected_signal": false
+    },
+    {
+      "id": "uncertain_release",
+      "text": "Album phát hành dự kiến vào năm 2030.",
+      "expected_signal": false
+    },
+    {
+      "id": "negated_release",
+      "text": "Album chưa được phát hành năm 2006.",
+      "expected_signal": false
+    },
+    {
+      "id": "identifier",
+      "text": "Album được phát hành với mã ABC-2006.",
+      "expected_signal": false
+    },
+    {
+      "id": "count_not_year",
+      "text": "Album được phát hành với 2006 bản.",
+      "expected_signal": false
+    },
+    {
+      "id": "wrong_unit",
+      "text": "Tòa nhà cao 400 với 20 người tham dự.",
+      "expected_signal": false
+    },
+    {
+      "id": "hypothetical_height",
+      "text": "Tòa nhà có thể cao 400 m.",
+      "expected_signal": false
+    },
+    {
+      "id": "title",
+      "text": "Tên album là \"Phát hành năm 2006\".",
+      "expected_signal": false
+    },
+    {
+      "id": "quoted_date",
+      "text": "Album phát hành bởi hãng \"Năm 2006\".",
+      "expected_signal": false
+    },
+    {
+      "id": "bare_year",
+      "text": "Dòng văn bản này có số 2006.",
+      "expected_signal": false
+    },
+    {
+      "id": "bare_quantity",
+      "text": "Mã sản phẩm là 14.",
+      "expected_signal": false
+    },
+    {
+      "id": "unrelated_link",
+      "text": "[[Hãng 2006]] là tên riêng chứa từ phát hành.",
+      "expected_signal": false
+    },
+    {
+      "id": "empty_predicate",
+      "text": "Một ngày có thể sẽ thành lập.",
+      "expected_signal": false
+    }
+  ]
+}

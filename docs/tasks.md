@@ -45,8 +45,107 @@
 - [x] P504 [Retrospective](../reports/verification/primary-first-retrospective.json): 34 primary classified / 30 unclassified / 36 unresolved, 20 eligible; original43 gains7 primary proofs. Comparison0; Bridge unavailable23 missing archived identity resolutions. Classification payload ~86.9% smaller; isolated RSS~161MiB, not live pilot RAM. [Preservation PASS](../reports/verification/primary-first-preservation.json).
 - [x] P505 Synchronized SPEC/PLAN/TASK/model/contracts/README/operator docs and scanned active descriptions; old references remain explicitly legacy/historical. Historical assessments unchanged.
 - [x] P506 Final offline suite **277 passed / 0 failed / 0 skipped**, independent review findings corrected with regressions, PowerShell fixture prepare/create/status/report/logging PASS. [Acceptance](../reports/verification/primary-first-implementation.md); [handoff](pilot100-replay.md). STOP; no actual qid-5 run, API, pilot, commit/push.
-- [ ] P507 USER runs a new qid-5 Pilot100 and returns artifacts. Not performed by agent.
+- [x] P507 USER ran qid-5 Pilot100 `eebad6a8-0cbc-41f7-bc08-7024ff7e1ced`, exit0; [assessment](../reports/pilots/eebad6a8-0cbc-41f7-bc08-7024ff7e1ced/assessment.md): same cohort/snapshot, 34 classified / 30 unclassified / 36 unresolved, 20 eligible, 0 pairs, 90 API requests with0errors/retries, 53.76 seconds, sampled RSS102.11MiB. Reports and100manifests match expected archived retrospective. Agent reviewed saved artifacts only; P508 remains pending.
 - [ ] P508 Review coverage, RAM/storage/API behavior and reproducibility before explicitly authorizing Pilot1000. Production remains separately unapproved.
+
+### Pilot 1,000 cooldown/retry repair — authorized offline scope (2026-10-26)
+
+- [x] C600 Read run `aa5c21ba-0e1d-4e5b-b0cd-8c56e6ed9b4b` without writes; verify archived 1,000 candidates, snapshot/config and absence of source-code frontiers in 277 published manifests. Record [implementation evidence](../reports/verification/cooldown-resume-implementation.md).
+- [x] C601 Reproduce maxlag/cooldown/negative hint/lease/gate failures with failing offline tests, then implement persistent candidate deferrals and typed stage deadlines with finite retry/wait budgets. Keep qid-5/lead-3 and immutable logical inputs.
+- [x] C602 Add controlled negative-hint refresh/24-hour TTL without replacing old null records, positive pins or manifests; enforce maxlag=5 and hand long Retry-After back to durable scheduling.
+- [x] C603 Distinguish attempted/processed/deferred/source_failed/data_complete/pilot_accepted, add work audit and incomplete-data exit 5; preserve old report aliases and immutable attempts.
+- [x] C604 Verify real provider cache-only/deferred/reordered restart fixtures, additive schema preservation and PowerShell Tee/exit5; add checkout launcher for embedded Python's stale installed package.
+- [x] C605 Synchronize SPEC/PLAN/model/contracts/operator documentation and deliver [same-run resume commands](pilot1000-resume.md).
+- [x] C606 Complete offline suite **292 passed**, followed by **24 current regression/PowerShell/checkpoint tests passed** (including an additional CLI exit-contract test and accurate deferred queue/ETA checks); independent review corrections verified; preservation PASS across 4,727 existing files plus DB/WAL/SHM hashes. Exact commands/logs in [verification](../reports/verification/cooldown-resume-implementation.md).
+- [x] C607 User explicitly authorized agent to resume Pilot 1,000; attempt `5a638c8f-f206-4d8a-9b8d-929b0369aec7` ended exit5: 878 processed,121 deferred,1 SHA-1 failure;89 eligible,9 Bridge/10 Comparison candidates. [Actual resume assessment](../reports/verification/pilot1000-resume-20261026.md);878 offline replays and277 prior manifest IDs verified. Invocation complete, data incomplete, pilot NOT accepted; no subsequent cohort/Production executed.
+- [ ] C608 Readiness for Pilot 10,000 requires complete source coverage and explicit user review/authorization. Production remains a separate unapproved gate.
+
+### Deferred/SHA-1/telemetry follow-up — offline only (2026-10-26)
+
+- [x] F700 Audit all121 deferred queue/stage deadlines and leases read-only;113 due,8 hint TTL future,0 active leases. Validate878 completed cached inputs offline and preserve1 terminal failure; [evidence](../reports/verification/pilot1000-followup-20261026.md).
+- [x] F701 Implement/test deferred-only scope: no terminal workers, discovery, TTL bypass or network recovery of cached terminal input; keep full-cohort reporting and finite budgets.
+- [x] F702 Investigate Q10761835/revision23640705 from stored evidence; report insufficient original payload/hash evidence, retain rejection, add typed hash diagnostics and batch isolation regressions without changing validation.
+- [x] F703 Correct exact stage/backoff ownership, materialization timing and RAM measurement through primary report export; disclose final telemetry flush scope.
+- [x] F704 Update SPEC/PLAN/operator handoff and verify fake-CLI PowerShell deferred-only/logging/exit contracts.
+- [x] F705 Final offline suite **302 passed**, exit0,332.22s; independent review corrections complete. Preservation PASS for durable data (8,049 files plus unchanged main DB/WAL hashes); volatile SHM read bookkeeping changed and is explicitly disclosed in [evidence](../reports/verification/pilot1000-followup-20261026.md). No live API/resume in this follow-up.
+- [x] F706 After a subsequent explicit user request, agent ran one deferred-only invocation `caf058cd-f003-4b8f-a979-39a75494757c`; exit5,15/15 API requests maxlag,0 newly processed. Checkpoint remains878/121/1,89 eligible,9 Bridge/10 Comparison candidates; [actual retry report](../reports/verification/pilot1000-deferred-resume-20261026.md). 878 manifests/classification/pairs/selection unchanged. No larger cohort/Production executed.
+- [ ] F707 Source recovery and completion of remaining deferred work require a later reviewed invocation;8 hints retain TTL and terminal SHA-1 failure still requires separate evidence/RCA. No automatic retry loop or escalation to Pilot10.000/Production.
+
+### Wikidata health preflight/circuit — implementation then explicitly authorized bounded live resume
+
+- [x] H800 Reproduce missing health gate/peer-worker storm in offline RED tests; define persistent host state, advisory probe and queue-preserving pause policy without changing research inputs.
+- [x] H801 Implement one-attempt preflight, no probing in cooldown/owned lease, persistent exponential host circuit, token-safe recovery, immediate maxlag trip and scheduler suppression of known dependent workers. Other hosts and valid cache paths remain separate.
+- [x] H802 Add host pause receipts/diagnostics without overwriting data reports; preserve checkpoint attempts/deadlines and provide recovery for default/deferred-only and already-authorized nonpilot entry paths.
+- [x] H803 Update SPEC/PLAN/model/contracts/operations; offline regressions include restart/recovery, ownership races, shared-host/new-run recovery and advisory success followed by data maxlag.
+- [x] H804 Final offline suite **318 passed**, exit0,330.64s; independent review fixes verified with regressions; baseline row digests captured across17 checkpoint/data tables and878 existing manifest IDs before any live request. Evidence/logs in `.tools/health/suite-final.log` and `.tools/health/baseline.json`.
+- [x] H805 Completed ONE user-authorized bounded deferred-only invocation on run aa5c21ba-0e1d-4e5b-b0cd-8c56e6ed9b4b, attempt `78e63893-7ef3-441f-86ce-0a39ba5095bc`: advisory preflight passed;113 new processed,991 total,8 hint-deferred and1 preserved SHA-1 failure;597 requests,0 errors/retries; exit5, not accepted.991 checksum/classification replays PASS;878 prior manifest IDs unchanged. Evidence: `reports/verification/pilot1000-health-resume-20261026.md`. STOP; no second invocation/larger cohort.
+
+### Extraction / factual signals — authorized offline repair (2026-10-26)
+
+- [x] E900 Reproduce linked-title segmentation, missing non-prose aliases and factual false positives with RED fixtures, then implement lead-4/vi-punct-3/quality-2 under pipeline-6. Keep qid-5, depth12, snapshot/manifests and thresholds.
+- [x] E901 Preserve legacy lead-3 config/quality replay and historical resume-wrapper contracts; new stage hashes include changed extraction/quality rules. No old run mutation or schema migration.
+- [x] E902 Add exact sentence predicate/value/date provenance, calendar/uncertainty/identifier/unit guards, separate event_start/event_end, and explicit local linked/named values; unknown factual templates remain unresolved.
+- [x] E903 Implement read-only offline retrospective over the exact archived1,000 cohort, replay old991 source/extraction/quality inputs, keep9 unavailable and report ablations, controls and cached-only pair limitations.
+- [x] E904 Final full offline suite **372 passed**, exit0,393.08s; independent review blockers fixed via RED/GREEN regressions. Preservation PASS across4,624 old DB/WAL/pilot-artifact hashes (SHM excluded). Archived retrospective:735 completed extractions,148 eligible (55 gained/6 lost),31 labelled controls TP12/FN1/FP0/TN18. Evidence: [acceptance](../reports/verification/extraction-quality-remediation-20261026.md); no API/pilot/run/checkpoint/cache mutation, commit or push.
+- [ ] E905 Any source Pilot100/1,000/10,000 using lead-4/quality-2 requires a new run and separate user authorization. No pilot/Production is run by this offline task.
+
+### Quality-2.1 bindings and explicitly authorized new Pilot100 ->1000 (2026-10-26)
+
+- [x] Q210 Verify parenthesized founding year/shared coordinated object on archived31397/3904 with positive/negative regression fixtures; gate refined semantics by quality_revision=quality-2.1, retain lead-4/quality-2 family and preserve prior rules snapshot.
+- [x] Q211 Add opt-in fail-fast integrity boundary before optional-dependency/identity swallowing and sibling recovery; enforce strict pre-HTTP request cap and checkpoint-preserving partial receipts; guard tests PASS.
+- [x] Q212 Create isolated replay database/new run `666068c8-3e97-4a7b-9a9b-f1e451c32a23`, exact archived1000 records/order/hash, qid-5/depth12/snapshot/rank-1 unchanged; compatible future hint TTLs reused without altering original DB.
+- [x] Q213 Final full offline suite **394 passed**, exit0,394.81s; independent review confirms opt-in fail-fast boundary covers optional dependencies/identity handling. Original DB/WAL hashes unchanged before source work; baseline10,358 original durable DB/raw/run files captured.
+- [x] Q214 Pilot100 attempt47a1e121-6f94-4d8d-a669-f3931c4a74ee completed, exit0/data_complete=true,23 eligible,92 completed extraction,3 Comparison,49 requests/0 errors/retries,29.61s.100 checksum/classification/quality replays and parent manifest IDs PASS before advancing; human yield unassessed.
+- [x] Q215 After verified complete Pilot100, executed ONE bounded Pilot1000 invocation728e918d-17db-47ee-8ebd-33917ffdd93f; STOP at candidate275/page421635, source_hash_mismatch Q10761835/revision23640705, exit3.273 processed/49 eligible,8 preserved hint deferrals,1 interrupted integrity stage; no next candidate or extra request. Pilot1000 NOT complete/accepted.
+- [x] Q216 [Handoff/comparison](../reports/verification/pilot-quality21-20261026.md),273 checksum/classification/quality/extraction replays and273 original manifest IDs PASS;10,358 original durable files unchanged. Partial pairs9/17 are offline diagnostics, not a published completed1000 report or human yield. STOP; no further invocation.
+- [ ] Q217 Pilot10000/Production remains unapproved and must not run in this task.
+
+### Pinned revision SHA-1 investigation (2026-10-26)
+
+- [x] H310 Inspect run `666068c8-3e97-4a7b-9a9b-f1e451c32a23` read-only; preserve durable input/checkpoint/artifact files and distinguish ordinal275 from273 completed plus one prior hint deferral.
+- [x] H311 Capture two bounded exact-revision diagnostic requests for23640705 outside trusted raw storage: one reproduces revision/slot hash disagreement with returned bytes, the second returns maxlag and ends network investigation. No pilot/resume.
+- [x] H312 Add slot-hash acquisition and serialization/hash-basis diagnostics without bypassing the existing guard; captured-response, encoding and isolated interrupted-stage regressions pass (23 focused tests).
+- [x] H313 Full offline suite401 PASS/exit0;273 checksum/classification/extraction/quality replays and manifest bindings PASS;10,655 existing durable data/config/checkpoint/artifact files unchanged. [RCA/handoff](../reports/verification/sha1-revision-23640705-20261026.md) distinguishes confirmed source hash inconsistency from unproven serializer cause and keeps resume blocked.
+- [ ] H314 Obtain independently verifiable historical content or review an explicit integrity-quarantine design; current SHA-1 source blocker remains unresolved. Do not silently skip or substitute the candidate.
+- [ ] H315 User resumes the existing run after H314 is resolved; no resume/Pilot10000/Production is authorized by this investigation.
+
+### Reviewed Integrity Quarantine and one authorized resume (2026-10-27)
+
+- [x] RQ310 User explicitly approved refusing only revision23640705/Q10761835 at the pinned snapshot; implement evidence-hashed run-scoped operational approval, with unchanged qid-5/lead-4/quality-2.1/rank-1 and cohort1000.
+- [x] RQ311 Source/provider checks prevent reviewed source materialization, optional-dependency swallowing and new manifest publication; preserve existing checkpoints and keep other integrity failures fatal. Cold/warm, cached-manifest and restored-checkpoint regression tests PASS.
+- [x] RQ312 Add quarantined_integrity queue/audit/counters, idempotent receipts, false completeness/acceptance gates, non-evidence checkpoint reporting, explicit matching-review requirement on later execution; targeted tests PASS.
+- [x] RQ313 Final full offline suite419 PASS/exit0 (320.61s), focused46 PASS; independent review42 PASS and execution safety findings fixed. Baseline11,122 durable files,273 completed processes and row digests captured; pre-run confirms replay DB/WAL byte-identical, cohort/config unchanged and no active worker lease.
+- [x] RQ314 Exactly ONE bounded1000 invocation8e14eed7-5eb6-4ea6-ac87-7468e9998acd, attempta99d9a80-c559-47d4-bcf1-813102711b73:991 processed/150 eligible,8 deferred/1 reviewed quarantine/0 new integrity errors,796 viwiki requests/0 errors/retries. Native exit5; data_complete/integrity_complete/pilot_accepted remain false. No further invocation.
+- [x] RQ315 Post-run991 checksum/classification/extraction/quality replays and manifest bindings PASS;3,262 Wikidata raw revisions validated;48,469 protected rows and11,122 existing durable files unchanged. [Handoff/comparison/quarantine audit](../reports/verification/pilot1000-reviewed-quarantine-20261027.md):29 Bridge/159 Comparison,724.64MiB sampled peak incl exports,385.97s; human yield unassessed. STOP.
+- [ ] RQ316 Recover/quarantine-resolution evidence and review of research/pair yield before any new cohort; Pilot10000/Production not authorized.
+
+### Next-stage source preflight, pair/ontology audit và Discovery design (2026-10-27)
+
+- [x] ND510 Read-only source preflight at01:33:19 Vietnam time:8 hint queue/stage deadlines agree,0 due,0 active leases; no early refresh/API call. Review existing quarantine evidence/ID and non-evidence state, keep completeness/acceptance false.
+- [x] ND511 Recheck at10:56 Vietnam time:8/8 hints due,0 leases; perform exactly one bounded source retry (cap100 HTTP attempts, wait0/retry0). Attempt `f74f7533-0a83-4a1b-b43c-ae640ec80df7`:8 pageprops requests,0 errors/retries,8 still null;991 processed/150 eligible/8 deferred/1 quarantine unchanged, exit5/acceptance false. New TTL28/10 10:58 Vietnam time. No second invocation.
+- [x] ND512 Audit all29 Bridge/159 Comparison inventories and exact rank1 rebuild; read29 link contexts/44 deduplicated signal contexts. Preserve human yield as unassessed; identify subject/date/title/hub risks without changing pair records.
+- [x] ND513 Analyze all425 unresolved primary manifests:1,360 depth13 frontier occurrences, no recorded primary source/node-budget failures;178/189 ambiguities have one proven group, not automatic completion. [Ontology evidence memo](../reports/verification/classification-ontology-design-20261027.md).
+- [x] ND514 Write proposed Stratified+Hyperlink-aware Discovery design, deterministic rounds/version/new-run boundaries, metrics, future regression/implementation plan and priorities. [Handoff](../reports/verification/pilot1000-next-stage-design-20261027.md). Existing source/quarantine/health controls47 PASS; new algorithm tests remain future work.
+- [x] ND515 User approved next implementation: controlled frozen-inventory discovery experiment and source lifecycle implemented offline (DS520–DS526 below). qid-5 semantics unchanged; live experiments/adaptive expansion remain pending.
+
+### Discovery implementation and manual evaluation handoff (2026-10-27)
+
+- [x] DS520 Valid quarantine restoration: no worker/queue write/attempt increment/source call; invalid/missing/conflicting review/receipt fails. RED→GREEN regression and integrity gates retained.
+- [x] DS521 Audit8 hints against3,292 verified selected Wikidata raws:0 matches, partial inventory/no absence proof, no guessed/pinned QID. Automatic budget2 actual negative observations/run then `association_review_required`; TTL/checkpoint compatibility retained.
+- [x] DS522 Freeze29 Bridge+50 stratified Comparison review packet:79 evidence cards,50 manifests, weights and two blank external sheets. Human validity/necessary hops unassessed.
+- [x] DS523 Pure legacy/seed-only/hybrid70/30 planner, caps/fallbacks, cross-pool/alias dedup and order invariance.8 quotas unchanged; reporting Location+Facility only, Science separate/unmapped. Namespace uncertainty/future intake scope/fingerprint/cache-only restart covered.
+- [x] DS524 Isolated new-run prep, cohort compatibility guard, private hashed cache baselines, guarded CLI and locked Tee/exit wrapper. Only fixtures prepared; [PowerShell handoff](discovery-experiments.md) uses actual contexts/new UUID outputs.
+- [x] DS525 Equal-budget1,000 offline comparison:143/143/113 observed eligible with unknown scope/inputs, not full yields; historical150 unchanged. [Acceptance](../reports/verification/discovery-implementation-20261027.md), release artifacts only.
+- [x] DS526 Full offline suite467 PASS/exit0; independent review findings fixed RED→GREEN;13,899 old durable files unchanged; docs/PowerShell parser/diff checks PASS. No commit/push/API/pilot.
+- [ ] DS527 User review implementation/source/namespace dispositions and new-run refusal drafts. Actual isolated preparation is complete under DS534; approval remains pending.
+- [ ] DS528 User-run Pilot100 for3 arms, inspect same-budget yield/source/cost/RAM/replay and incomplete gates.
+- [ ] DS529 User-run Pilot1000 only after each prior100 completeness/review gate; no automatic next stage.
+- [ ] DS530 External two-reviewer manual79 evaluation, actual pair/claim yield, scope/shortcut/diversity and uncertainty.
+- [ ] DS531 Broader frozen listing inventories / online adaptive later rounds on separately reviewed version/input; no population benefit claim from saturated1,000 seeds.
+- [ ] DS532 Pilot10000/Production decision only after source/integrity, actual staged results and human evaluation; not authorized here.
+- [x] DS533 Reproduce and fix qid-5 discovery prepared-worker fingerprint mismatch: exact namespace scope accepted, missing/changed scope refused, Builder restart preserves completed process checkpoint. Offline regression evidence in `.tools/discovery-preflight/`.
+- [x] DS534 Prepare three actual isolated runs/private cache baselines, verify14,369 historical durable files unchanged and hand over scoped inactive quarantine drafts. [Preflight report](../reports/verification/discovery-preflight-pilot100-20261027.md). Live Pilot100 remains blocked: Seed-only candidate100 needs new-run approval; no API/pilot/approval activation/cohort substitution.
+- [x] DS535 Full offline regression suite469 PASS/exit0;991 pure classification/extraction/quality replays PASS; three context/config/cohort checks and common private cache-baseline hashes PASS. No1,000/10,000/Production authorization implied.
 
 ## Execution Rules
 

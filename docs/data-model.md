@@ -1,9 +1,19 @@
 # Data Model: Corpus Builder and Annotation
 
+Refinement within quality-2 adds optional `quality_revision: quality-2.1` to rules/results/signals and an explicit `binding_reason` for the narrowly supported founding-year/shared-object cases. Absence retains the original quality-2 interpretation. pipeline-6.1/run fingerprints distinguish these semantics; source snapshot, qid-5 manifests and schema1 remain unchanged.
+
+Current extraction defaults are `lead-4` / `vi-punct-3` and `quality-2` (`pipeline-6`); classification remains qid-5. No schema migration is needed. Versioned quality JSON adds `quality_version`; signals add sentence-relative `match_start`, `match_end`, `value_spans` (literal text, optional unit), and `date_spans` (literal text plus calendar-checked ISO date). `value_kind` may be `year`, `quantity`, `entity`, or `text`; text is not a resolved entity, and only year signals qualify for current Comparison blocks. Each span slices the stored sentence exactly. Full validation rules remain embedded in frozen metadata. Rules without `quality_version` replay quality-1 exactly; old JSON/annotation/export contracts remain readable and old sentence IDs are never remapped.
+
 **Plan:** [plans.md](plans.md)  
 **Status:** Builder classification below reflects implemented qid-5; existing corpus/annotation schema and legacy records remain compatible. No actual-data migration is performed by the offline implementation task.
 
 ## Shared Conventions
+
+Discovery experiments add JSON artifacts, not a schema migration: `vimfc-discovery-inventory-1` pins source snapshot/rule hashes, canonical seeds, prior-run eligible-lead target proofs and omissions; `vimfc-discovery-cohort-1` pins policy/variant/input inventory, unique candidate order/origins, actual slot mix and shortfalls. A new run config carries `discovery.version/inventory_id/manifest_id/cohort_hash/namespace_policy`, while legacy configs omit it. Cohort cloning compatibility includes this discovery object. Candidate records add `discovery_version`, `discovery_slot`, `expected_strata`, `discovery_origins`, `discovery_candidate_variants` and explicit verified/unverified namespace status; these are acquisition metadata, never classification evidence. New discovery process results retain `discovery_source_scope`; its hash is part of outer process input identity. Colon-title scope receipts live in existing versioned stage_results (`verify_namespace`); missing/mismatching receipts block cache-only restore, no silent evidence revival.
+
+Sampling quotas (eight unchanged values), actual qid-5 primary group and optional reporting group are separate. Location/Facility may aggregate only for reporting; Science/Technology has null core-report mapping and is explicitly shown separately. No primary/subtype/quality/freeze/annotation schema changes follow from this aggregation.
+
+`vimfc-manual-review-pack-1` / `manual-pair-review-1` stores frame/sample hashes, inclusion probabilities/weights, frozen79 pair IDs, checked Full Lead documents/witnesses and empty human judgments. Unique dependency manifests are referenced by ID and exported alongside the packet; it is an external research artifact, not app-managed review state. Quarantine restore consumes immutable receipt JSON and leaves queue attempts/timestamps unchanged. Source exhaustion code `association_review_required` means manual association review, not no supported primary or proven absence of QID.
 
 - UUID strings identify runs, sessions, submissions and samples. Wikipedia page/revision IDs are integers; Wikidata identities use QID strings and integer revision IDs.
 - Timestamps are UTC ISO-8601. Snapshot, revision and operation timestamps are distinct fields.
@@ -41,7 +51,9 @@ Legacy qid-1/2/3/4 retain `outcome`, `primary_entity_type`, `subtypes`, `provena
 | `source_revisions` | Unique `(site, revision_id)`; page/item identity, revision timestamp, content model, source/local hashes, raw object path | Revision-addressed reusable acquisition |
 | `snapshot_revision_refs` | PK `(site, identity, snapshot_timestamp_utc)`; verified selected revision or unresolved outcome | Avoid repeating historical revision lookup |
 | `identity_resolutions` | Snapshot + lookup title; canonical page/title, resolution-chain JSON, status, source/log evidence | Historical redirect/title ownership proof |
-| `stage_results` | PK `(run_id, identity, stage, dependency_hash)`; pending/completed/failed, result hash/path/JSON, rejection reason, lease, attempts, error, next retry | Idempotent stage outcomes and checkpoints |
+| `stage_results` | PK `(run_id, identity, stage, dependency_hash)`; pending/completed/deferred/failed, result hash/path/JSON, rejection reason, lease, attempts, typed error JSON, next retry | Idempotent stage outcomes and checkpoints |
+| `candidate_work` | PK `(run_id, page_id)`; processed/deferred/source_failed/quarantined_integrity, compact diagnostics, retry deadline, worker-entry count, update time | Durable operational queue, separate from classification manifests; quarantine has a case/review ID and no classification/evidence payload |
+| `host_circuits` | PK site; state, consecutive_failures, next_retry_at, last observation/code/message, leased probe token/until | Operational host readiness; never corpus evidence or a classification dependency |
 | `classification_results` | Article + classification fingerprint; primary group, subtype IDs, item/dependency revision IDs, property paths, outcome | Historical classification basis |
 | `lead_results` | Article revision + extraction fingerprint; full prose/paragraphs/sentences, stats, retained link occurrences, outcome | Shared prose and graph extraction boundary |
 | `pair_candidates` | Unique `(run_id, pair_kind, endpoint_a, endpoint_b, ranking_version)`; features, score, matching-rule/sentence provenance | Directed bridge pairs and canonical unordered comparison pairs |
@@ -54,7 +66,7 @@ Raw blobs reside in `data/raw/<site>/<revision_id>/<content_hash>.json.gz` or a 
 
 Run lifecycle: `collecting -> processing -> selecting -> ready_to_freeze -> frozen`, with `interrupted`/`failed` outcomes recorded where appropriate. An interrupted run resumes under its original fingerprint.
 
-Stage lifecycle: `pending -> completed` or `pending -> failed`; retryable failures return to pending through a recorded retry decision. A completed eligibility rejection stores `eligible=false` and reason rather than becoming an API failure. Missing supported history/classification/extraction can remain pending/unclassified with a specific cause.
+Stage lifecycle: `pending -> completed`, `pending -> deferred` for transient errors, or `pending -> failed` for terminal errors. Due deferred stages return to pending automatically under finite invocation budgets. Legacy failed rows with retry deadlines remain resumable. A completed eligibility rejection stores `eligible=false`, not an API failure. Depth/ambiguity unresolved is a terminal semantic result, not an automatic source retry. The additive queue table/error column preserve schema-1 records and manifest/config identities. Negative hint refresh uses a separate operational stage/24-hour TTL, preserving old null records.
 
 Incompatible configuration creates a new run. Prior stage outputs may be referenced by the new run only if relevant dependency hashes match. Never mutate prior configuration or frozen artifacts.
 

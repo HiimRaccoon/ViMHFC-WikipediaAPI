@@ -32,7 +32,15 @@ def assess_quality(extraction, classification, kinds, rules):
                 linked=[link['target_title'] for link in extraction['links'] if link['sent_id']==sentence['sent_id']]
                 signals.append({'rule':rule,'sent_id':sentence['sent_id'],'matched_text':match[0], 'linked_targets':linked,
                     'attribute_key':rule,'value_kind':'year' if years else 'entity','values':years if years else linked,'extraction_version':extraction['extraction_version']})
+    if rules.get('quality_version')=='quality-2':
+        from .factual import detect_signals
+        signals=detect_signals(extraction,rules)
     if not signals:
         reasons.append('no_factual_signal')
     score=min(100,20+min(30,len(complete)*5)+min(30,len({s['rule'] for s in signals})*10)+min(20,len(extraction['full_lead'].split())//10))
-    return {'eligible':not reasons,'reasons':reasons,'score':score,'signals':signals}
+    result={'eligible':not reasons,'reasons':reasons,'score':score,'signals':signals}
+    if rules.get('quality_version'):
+        result['quality_version']=rules['quality_version']
+    if rules.get('quality_revision'):
+        result['quality_revision']=rules['quality_revision']
+    return result

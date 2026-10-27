@@ -163,7 +163,7 @@ def performance_report(stages,elapsed,requests,cache,resources):
     return {'stages':stages,'end_to_end_seconds':elapsed,'physical_requests':dict(requests),
         'cache':{**cache,'hit_rate':hits/lookups if lookups else None},'resources':resources,
         'request_rates':{'physical_request_count':physical,'retry_count':retries,'retry_denominator':physical,'retry_rate':retries/physical if physical else None,'error_count':errors,'error_denominator':physical,'error_rate':errors/physical if physical else None},
-        'derived_cache':{name:{'hits':stage.get('reused',0),'lookups':stage.get('new',0)+stage.get('reused',0)+stage.get('failed',0),'hit_rate':stage.get('reused',0)/max(1,stage.get('new',0)+stage.get('reused',0)+stage.get('failed',0))} for name,stage in stages.items()},
+        'derived_cache':{name:{'hits':stage.get('reused',0),'lookups':stage.get('new',0)+stage.get('reused',0)+stage.get('failed',0)+stage.get('deferred',0),'hit_rate':stage.get('reused',0)/max(1,stage.get('new',0)+stage.get('reused',0)+stage.get('failed',0)+stage.get('deferred',0))} for name,stage in stages.items()},
         'production_eta':eta}
 
 
@@ -199,15 +199,21 @@ class ResourceSampler(AbstractContextManager):
         return sum(p.stat().st_size for p in self.root.rglob('*') if p.is_file()) if self.root.exists() else 0
 
     def __exit__(self,*args):
+        self.finish()
+
+    def finish(self):
+        if self.stop.is_set():return
         self.stop.set()
         self.thread.join(timeout=2)
         self.sample()
 
     def report(self):
-        first,last=(self.samples[0],self.samples[-1]) if self.samples else ({},{})
+        # Snapshot the series before JSON serialization while the sampler is live.
+        samples=list(self.samples)
+        first,last=(samples[0],samples[-1]) if samples else ({},{})
         elapsed=last.get('elapsed',0)-first.get('elapsed',0)
         cpu_seconds=last.get('cpu_seconds',0)-first.get('cpu_seconds',0)
-        return {'sampling_interval_seconds':self.interval,'samples':self.samples,'peak_rss_bytes':max((s['rss_bytes'] for s in self.samples),default=None),
+        return {'sampling_interval_seconds':self.interval,'samples':samples,'peak_rss_bytes':max((s['rss_bytes'] for s in samples),default=None),
             'cpu_seconds':cpu_seconds,'cpu_utilization_percent':100*cpu_seconds/elapsed if elapsed>0 and self.samples else None,
             'io_read_bytes':last.get('read_bytes',0)-first.get('read_bytes',0),'io_write_bytes':last.get('write_bytes',0)-first.get('write_bytes',0),'available_measurements':bool(self.samples),
             'disk_growth_bytes':self.disk_usage()-self.initial_disk,'available_disk_bytes':psutil.disk_usage(self.root.resolve().anchor).free,

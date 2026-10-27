@@ -3,11 +3,26 @@ import re
 import unicodedata
 
 
-def split_sentences(paragraphs, rules):
+def split_sentences(paragraphs, rules, *, links=()):
     result=[]
     for paragraph_id, source in enumerate(paragraphs):
         text=unicodedata.normalize('NFC',source)
         protected=text
+        if rules.get('protect_link_spans'):
+            chars=list(protected)
+            for link in links:
+                if link['paragraph_id']!=paragraph_id:
+                    continue
+                left,right=link['start'],link['end']
+                if not 0<=left<right<=len(text) or text[left:right]!=link['link_text']:
+                    raise ValueError('Invalid retained link span')
+                for i in range(left,right):
+                    if chars[i] in '.!?…':
+                        following=text[right:]
+                        if i==right-1 and following[:1].isspace() and following.lstrip()[:1].isupper():
+                            continue
+                        chars[i]='\ue010'
+            protected=''.join(chars)
         for abbreviation in sorted(rules['abbreviations'],key=len,reverse=True):
             protected=re.sub(re.escape(abbreviation),lambda m:m[0].replace('.','\ue010'),protected)
         protected=re.sub(r'(?<=\d)\.(?=\d)', '\ue010',protected)

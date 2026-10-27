@@ -1,5 +1,9 @@
 # Chạy lại Pilot 100 sau sửa lỗi — thao tác của người dùng
 
+**Phạm vi version:** Các lệnh/handoff lịch sử bên dưới mô tả qid-5/lead-3/pipeline-5. Default config hiện đã là lead-4/quality-2/pipeline-6 sau sửa extraction/factual signals offline; không dùng default mới để resume run cũ, không suy ra bộ rules mới đã chạy pilot. Một lần chạy nguồn với rules mới cần run/config identity mới và quyết định riêng; task sửa offline không tự cấp quyền đó.
+
+**Cập nhật vận hành 2026-10-26:** Resume tự nhận diện deferred stages đã đến hạn; `pipeline retry` là tùy chọn, không bỏ cooldown/TTL. Exit 5 biểu thị nguồn chưa đầy đủ; exit 0/completed không phải nghiệm thu. Với Python embedded có bản cài cũ, dùng launcher checkout `scripts/vimfc-local.py`. Hướng dẫn cho run Pilot 1.000 hiện tại nằm riêng tại [pilot1000-resume.md](pilot1000-resume.md); không tạo lại Pilot 100 để sửa run đó.
+
 Chỉ chạy các lệnh dưới đây khi muốn bắt đầu Pilot 100 mới bằng Primary-First, Optional-Subtype (`qid-5`). Agent chưa chạy pilot này. Không có lệnh Pilot 1.000 hoặc Production trong hướng dẫn này.
 
 Nguồn đã kiểm tra trên máy này:

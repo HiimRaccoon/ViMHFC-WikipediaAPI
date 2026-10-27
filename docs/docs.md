@@ -167,7 +167,7 @@ Freeze only after the corpus contains 20,000 unique articles and passes checks f
 - Do not download or recompute already valid results unnecessarily.
 - Display progress, processed article counts, processing speed, and estimated time remaining.
 - Save candidates, metadata, leads, hyperlinks, classifications, filtering results, and ranking results periodically.
-- Track `pending`, `completed`, and `failed` processing states; support retries for API/network failures.
+- Track `pending`, `completed`, `deferred`, and terminal `failed` states. Transient host/network work retains deadlines; bounded resume retries due work automatically and may continue safe cache-only work. Invocation completion/exit 0 is distinct from full data coverage and human acceptance; see [resume operations](pilot1000-resume.md).
 - Make processing idempotent to avoid duplicate records.
 - Resume automatically from the nearest valid checkpoint after interruption.
 

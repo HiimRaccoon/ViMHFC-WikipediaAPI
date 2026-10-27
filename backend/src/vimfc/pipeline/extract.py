@@ -130,7 +130,7 @@ def extract_lead(raw, rules):
                 link['end']-=trim
                 links.append(link)
             paragraphs.append(value)
-    sentences=split_sentences(paragraphs,rules)
+    sentences=split_sentences(paragraphs,rules,links=links)
     for link in links:
         matches=[s for s in sentences if s['paragraph_id']==link['paragraph_id'] and s['start']<=link['start'] and link['end']<=s['end']]
         if len(matches)!=1:

@@ -20,9 +20,8 @@ def test_short_and_unknown_template_leads_are_not_research_candidates(config):
 def test_year_is_bound_to_its_factual_clause_not_every_attribute(config):
     result=extract_lead('Ông sinh tại Hà Nội và thành lập Viện A năm 2001. Ông làm việc tại đây.',config['extraction'])
     signals=assess_quality(result,{'outcome':'completed','primary_entity_type':'Person'},[],config['extraction'])['signals']
-    birth=next(s for s in signals if s['rule']=='birth')
     founded=next(s for s in signals if s['rule']=='founded')
-    assert birth['value_kind']!='year' and birth['values']==[]
+    assert not any(s['rule']=='birth' and s['value_kind']=='year' for s in signals)
     assert founded['value_kind']=='year' and founded['values']==['2001']
 
 

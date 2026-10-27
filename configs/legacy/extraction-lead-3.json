@@ -1,0 +1,23 @@
+{
+  "version": "lead-3", "sentence_version": "vi-punct-2",
+  "min_sentences": 2, "min_tokens": 40,
+  "abbreviations": ["TP.", "TS.", "GS.", "PGS.", "ThS.", "Dr.", "Mr.", "Mrs.", "v.v.", "Bros.", "Co.", "Ltd.", "Inc.", "Corp."],
+  "excluded_template_prefixes": ["infobox", "hộp thông tin", "chú thích", "reflist", "tham khảo", "navbox", "sidebar", "tọa độ", "coord", "short description", "mô tả ngắn", "hatnote", "about", "other uses", "chú giải"],
+  "nonprose_templates": {
+    "thông tin khu dân cư":"infobox", "thông tin máy bay":"infobox", "thông tin phim":"infobox",
+    "thông tin trường học":"infobox", "thông tin đơn vị hành chính việt nam":"infobox",
+    "thông tin album nhạc":"infobox", "thông tin bài hát":"infobox", "thông tin công ty":"infobox",
+    "thông tin giải thưởng":"infobox", "thông tin nhân vật":"infobox", "thông tin sân bay":"infobox",
+    "thông tin về tổ chức":"infobox", "thông tin đường bộ việt nam":"infobox",
+    "bảng thông tin thành phố pháp":"infobox", "bảng phân loại":"infobox", "ethnic group":"infobox", "viên chức":"infobox",
+    "bài cùng tên":"hatnote", "phân biệt":"hatnote", "về":"hatnote", "other":"hatnote", "redirect":"hatnote", "xem thêm":"hatnote",
+    "mồ côi":"maintenance", "thiếu nguồn gốc":"maintenance", "cần dẫn nguồn":"maintenance", "cần thêm chú thích":"maintenance",
+    "blp sources":"maintenance", "expand":"maintenance", "pp-vandalism":"maintenance",
+    "trang định hướng":"disambiguation_notice", "alphatoc2":"navigation", "tocright":"navigation",
+    "lowercase":"title_metadata", "wiktionary":"sister_project_box", "listen":"media", "efn":"footnote", "flagicon":"media", "columns-list":"list"
+  },
+  "excluded_magic_prefixes": ["defaultsort:", "displaytitle:"],
+  "language_names": {"en":"tiếng Anh", "ru":"tiếng Nga", "hi":"tiếng Hindi", "th":"tiếng Thái", "ja":"tiếng Nhật", "zh":"tiếng Trung", "nl":"tiếng Hà Lan", "fr":"tiếng Pháp", "de":"tiếng Đức"},
+  "formatters": {"lang": "lang", "langx":"language_label", "ipa":"ipa", "nihongo":"japanese", "zh":"chinese", "lang-zh":"chinese", "airport codes":"airport_codes", "cquote":"quotation", "nowrap": "text", "small": "text", "nobr": "text", "birth date": "date", "ngày sinh": "date", "death date": "date", "ngày mất": "date", "start date": "date"},
+  "factual_rules": {"birth": "sinh(?: ra)?(?: (?:ngày|năm|tại|ở))", "founded": "(?:thành lập|sáng lập)", "location": "(?:trụ sở|tọa lạc|nằm ở)", "authorship": "(?:đạo diễn|tác giả|sáng tác)", "employment": "(?:gia nhập|thành viên|làm việc)", "event": "(?:diễn ra|tổ chức)"}
+}

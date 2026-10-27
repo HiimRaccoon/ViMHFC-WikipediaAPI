@@ -1,7 +1,9 @@
 # ViMFC Wikipedia corpus builder
 
 Implementation follows [docs/tasks.md](docs/tasks.md) and [the agreed requirements](docs/docs.md).
-The builder and offline remediation after two authorized Pilot 100 runs are implemented. The latest repair passes 177 offline backend tests; the user has not yet run its new-rule replay. See the [round-2 assessment](reports/pilots/9c3ed5a4-f161-454c-8a3c-71fe69ed6c1e/assessment.md), [offline repair acceptance](reports/verification/pilot2-remediation.md), and [operator commands](docs/pilot100-replay.md). Pilot 1,000 and Production remain unapproved; no research corpus has been delivered. Annotation and UI features in T054+ are not implemented yet; the frontend directory is setup only (T002).
+
+Opt-in [Discovery experiments and Windows commands](docs/discovery-experiments.md) prepare separate `pipeline-7` legacy/seed-only/hybrid cohorts from checked frozen inventories. They retain qid-5/lead-4/quality-2.1/rank-1; offline reports/preparation never authorize a pilot or Production.
+The current builder defaults use historical Primary-First, Optional-Subtype classification (`qid-5`), `lead-4`, and `quality-2` with explicit revision `quality-2.1` (`pipeline-6.1`). New-rule source validation uses an isolated replay run only when explicitly requested. Existing Pilot 1,000 resume contexts retain their pinned lead-3 rules, durable deferrals, bounded retries and explicit source completeness. See [Windows resume commands](docs/pilot1000-resume.md) for that historical run. Earlier assessments remain historical records. Annotation and UI features in T054+ are not implemented yet; the frontend directory is setup only (T002).
 
 ## Windows development setup
 
@@ -28,7 +30,7 @@ For this workspace runtime, use `& .\.tools\python312\python.exe -m pytest --bas
 
 ## Builder commands and manual stops
 
-Current builder policy is **Primary-First, Optional-Subtype**, `qid-5` / `pipeline-5`. Historical P31/P279 proves required primary; P106 may support Person subtypes but never primary by itself. Optional subtype incompleteness does not reject a proven primary. Required primary conflicts remain unresolved unless recorded global-precedence dominance proves the decision safe. Depth 12, union budget 2,048, quality thresholds, lead-3, rank-1 and exact 20,000 gate remain unchanged. Immutable role-aware manifests bind input revisions/hashes and compact evidence; cache warmth never expands the semantic graph. Bridge needs no subtype; Comparison/Same Entity Type still require a positively supported shared subtype. See [implementation](reports/verification/primary-first-implementation.md) and [operator handoff](docs/pilot100-replay.md).
+Current classification policy remains **Primary-First, Optional-Subtype**, `qid-5`. Historical P31/P279 proves required primary; P106 may support Person subtypes but never primary by itself. Optional subtype incompleteness does not reject a proven primary. Required primary conflicts remain unresolved unless recorded global-precedence dominance proves the decision safe. Depth 12, union budget 2,048, quality thresholds, rank-1 and exact 20,000 gate remain unchanged. Immutable role-aware manifests bind input revisions/hashes; cache warmth never expands the semantic graph. Bridge needs no subtype; Comparison/Same Entity Type still require a positively supported shared subtype. New extraction/quality semantics require a new run; historical handoffs/assessments retain their archived versions.
 
 Run creation, status and reports are local-only commands. A snapshot is always supplied explicitly:
 

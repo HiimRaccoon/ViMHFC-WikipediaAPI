@@ -19,6 +19,13 @@ class RoleLoader:
         try:
             raws=self.source.fetch_revisions('wikidata',refs,recover_missing=True)
         except (SourceUnavailable,ValueError,TypeError,KeyError,OSError,AttributeError) as error:
+            if isinstance(error,SourceUnavailable) and error.code=='source_hash_mismatch' and error.details.get('qid') in {r.identity for r in refs}:
+                # Isolate the known bad member without refetching that rejected
+                # revision or discarding validated siblings already cached.
+                bad=error.details['qid'];self._error(bad,error)
+                remaining=[r for r in refs if r.identity!=bad]
+                if remaining:self._fetch(remaining)
+                return
             if len(refs)>1 and (not isinstance(error,SourceUnavailable) or error.code=='historical_content_unavailable' or error.code=='invalid_historical_cache' and error.details.get('qid')):
                 # Successful parts of a partial response are already cached;
                 # isolate a corrupt/missing member instead of invalidating peers.

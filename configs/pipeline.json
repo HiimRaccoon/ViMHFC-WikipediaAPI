@@ -1,5 +1,5 @@
 {
-  "version": "pipeline-5", "initial_target": 80000, "extension_size": 10000, "corpus_size": 20000,
+  "version": "pipeline-6.1", "initial_target": 80000, "extension_size": 10000, "corpus_size": 20000,
   "seed": "vimfc-1", "user_agent": "", "contact": "",
   "known_revision_batch": 20, "max_attempts": 5, "maxlag": 5,
   "local_workers": 2, "transaction_batch": 100, "checkpoint_seconds": 10,

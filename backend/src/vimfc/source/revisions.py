@@ -2,12 +2,29 @@ from dataclasses import asdict,replace
 from collections import Counter
 import hashlib
 import json
+from functools import wraps
 from vimfc.domain import SourceRevisionRef, RawRevision, SourceUnavailable, canonical, utc, at_or_before,now
 
 
+def guarded_validation(method):
+    @wraps(method)
+    def call(self,*args,**kwargs):
+        try:return method(self,*args,**kwargs)
+        except SourceUnavailable as error:
+            if self.integrity_guard:self.integrity_guard(error)
+            raise
+        except (ValueError,TypeError,KeyError,OSError,AttributeError) as error:
+            if self.integrity_guard:
+                self.integrity_guard(SourceUnavailable('Invalid historical source input',code='invalid_historical_cache',details={'cause':str(error)}))
+            raise
+    return call
+
+
 class RevisionSource:
-    def __init__(self, client, store, cache, batch_size=20):
+    def __init__(self, client, store, cache, batch_size=20,*,integrity_guard=None):
         self.client, self.store, self.cache = client,store,cache
+        self.integrity_guard=integrity_guard
+        self.reviewed_quarantine=None
         self.batch_size = min(20,max(1,batch_size))
         self.cache_hits = 0
         self.cache_lookups = 0
@@ -27,13 +44,16 @@ class RevisionSource:
         self.store.db.execute('INSERT INTO source_failures VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(site,identity,snapshot,operation) DO UPDATE SET error_json=excluded.error_json,retry_at=excluded.retry_at,retryable=excluded.retryable,recorded_at=excluded.recorded_at',
             (site,str(identity),snapshot,operation,canonical(value),error.retry_at,int(error.retryable),now()))
 
+    @guarded_validation
     def select_revision(self, site, identity, snapshot):
         snapshot, identity = utc(snapshot), str(identity)
         self.cache_lookups += 1
         row = self.store.db.execute('SELECT record_json FROM snapshot_revision_refs WHERE site=? AND identity=? AND snapshot=?',(site,identity,snapshot)).fetchone()
         if row:
             self.cache_hits += 1
-            return SourceRevisionRef(**json.loads(row[0]))
+            ref=SourceRevisionRef(**json.loads(row[0]))
+            if self.reviewed_quarantine:self.reviewed_quarantine.check(ref)
+            return ref
         selector = {'pageids':identity} if identity.isdecimal() else {'titles':identity}
         self._cached_failure(site,identity,snapshot,'select')
         try:
@@ -50,13 +70,18 @@ class RevisionSource:
         if not at_or_before(revision['timestamp'],snapshot):
             raise SourceUnavailable('Source returned a future revision')
         ref = SourceRevisionRef(site,identity,page['pageid'],page['title'],revision['revid'],utc(revision['timestamp']),snapshot,payload.get('curtimestamp'))
+        if self.reviewed_quarantine:self.reviewed_quarantine.check(ref)
         self.store.db.execute('INSERT OR IGNORE INTO snapshot_revision_refs VALUES (?,?,?,?)',(site,identity,snapshot,canonical(ref)))
         canonical_ref=replace(ref,identity=str(ref.page_id))
         self.store.db.execute('INSERT OR IGNORE INTO snapshot_revision_refs VALUES (?,?,?,?)',(site,str(ref.page_id),snapshot,canonical(canonical_ref)))
         self.store.db.execute('DELETE FROM source_failures WHERE site=? AND identity=? AND snapshot=? AND operation=?',(site,identity,snapshot,'select'))
         return ref
 
+    @guarded_validation
     def fetch_revisions(self, site, refs, *, recover_missing=False):
+        if self.reviewed_quarantine:
+            for ref in refs:
+                if ref.site==site:self.reviewed_quarantine.check(ref)
         outputs, missing = {},[]
         for ref in refs:
             if ref.site != site or not at_or_before(ref.revision_timestamp,ref.snapshot):
@@ -117,7 +142,7 @@ class RevisionSource:
 
     def _fetch_batch(self, site, refs, outputs):
         try:
-            payload = self.client.query(site,{'action':'query','prop':'revisions','revids':'|'.join(str(r.revision_id) for r in refs),'rvprop':'ids|timestamp|content|contentmodel|sha1','rvslots':'main'})
+            payload = self.client.query(site,{'action':'query','prop':'revisions','revids':'|'.join(str(r.revision_id) for r in refs),'rvprop':'ids|timestamp|content|contentmodel|sha1|slotsha1','rvslots':'main'})
         except SourceUnavailable as error:
             error.details.setdefault('requested_revision_ids',[r.revision_id for r in refs])
             if len(refs)>1 and any(k in str(error) for k in ('413','414','toomanyvalues','response')):
@@ -138,7 +163,18 @@ class RevisionSource:
                     continue
                 sha1 = hashlib.sha1(content.encode('utf-8')).hexdigest()
                 if revision.get('sha1') != sha1:
-                    raise SourceUnavailable('Source SHA-1 mismatch')
+                    raise SourceUnavailable('Source SHA-1 mismatch',code='source_hash_mismatch',details={
+                        'site':site,'identity':ref.identity,'qid':ref.identity if site=='wikidata' else None,
+                        'page_id':ref.page_id,'revision_id':ref.revision_id,'revision_timestamp':ref.revision_timestamp,
+                        'snapshot':ref.snapshot,'reported_sha1':revision.get('sha1'),'computed_sha1':sha1,
+                        'content_sha256':hashlib.sha256(content.encode('utf-8')).hexdigest(),
+                        'utf8_length':len(content.encode('utf-8')),'slot_sha1':slot.get('sha1'),
+                        'content_model':slot.get('contentmodel',revision.get('contentmodel')),
+                        'content_format':slot.get('contentformat',revision.get('contentformat')),
+                        'hash_validation_basis':'revision_sha1',
+                        'revision_sha1_matches_content':revision.get('sha1')==sha1,
+                        'slot_sha1_matches_content':slot['sha1']==sha1 if 'sha1' in slot else None,
+                        'reason':'missing_reported_sha1' if revision.get('sha1') is None else 'hash_mismatch'})
                 value = {'page_id':ref.page_id,'timestamp':ref.revision_timestamp,'content':content,'content_model':slot.get('contentmodel',revision.get('contentmodel')),'source_sha1':sha1,'local_sha256':hashlib.sha256(content.encode('utf-8')).hexdigest()}
                 cache_ref = self.cache.put(site,ref.revision_id,value)
                 self.store.db.execute('INSERT OR IGNORE INTO source_revisions VALUES (?,?,?)',(site,ref.revision_id,canonical({'cache_ref':cache_ref})))
