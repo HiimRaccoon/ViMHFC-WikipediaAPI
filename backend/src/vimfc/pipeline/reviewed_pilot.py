@@ -7,7 +7,7 @@ import re
 import sys
 import time
 import uuid
-from vimfc.domain import Incompatible,canonical,now,VimfcError
+from vimfc.domain import Incompatible,canonical,now,VimfcError,SourceUnavailable
 from vimfc.domain import digest
 from vimfc.source.mediawiki import MediaWikiClient
 from vimfc.storage.raw_cache import RawCache
@@ -68,14 +68,18 @@ def prepare_reviewed_replay(source_database,source_run,current_config,raw_root,o
 
 
 class PilotGuard:
-    def __init__(self,max_requests,*,progress=True):
+    def __init__(self,max_requests,*,progress=True,stop_on_source=False):
         if not 1<=max_requests<=10000:raise ValueError('Request budget must be1..10000')
         self.max_requests=max_requests;self.http_attempts=0;self.blocked_attempts=0
         self.emit_progress=progress;self.last_candidate=None
+        self.stop_on_source=stop_on_source
 
     def source_failure(self,error):
         untyped=re.search(r'mismatch|checksum|corrupt|beyond snapshot|future revision',str(error),re.I)
         if error.code in INTEGRITY_CODES or untyped:raise IntegrityStop(error) from error
+        if self.stop_on_source:
+            if error.retryable or error.code not in ('history_unavailable','historical_content_unavailable'):
+                raise Incompatible('reviewed_source_stop: '+str(error.code)+'; no optional transient frontier published') from error
 
     def http_request(self,request):
         if request.url.params.get('maxlag')!='5':raise Incompatible('maxlag_guard')
@@ -92,31 +96,61 @@ class PilotGuard:
             raise Incompatible(f"integrity_stop: {event['error_code']}; page={event.get('page_id')}; checkpoint preserved")
 
 
-def run_reviewed(store,run_id,raw_root,size,*,reports='reports/pilots',max_requests=2000,max_wait_seconds=60,retry_rounds=2,reviewed_quarantine=None):
+def run_reviewed(store,run_id,raw_root,size,*,reports='reports/pilots',max_requests=2000,max_wait_seconds=60,retry_rounds=2,reviewed_quarantine=None,exploratory_progression=None,stop_on_source=False,integrity_registry=None):
     """Runs exactly one bounded stage, never starts the next size automatically."""
     if size not in (100,1000):raise ValueError('Reviewed invocation permits100 or1000 only')
     run=store.run(run_id)
     from .quarantine import ReviewedIntegrityQuarantine,require_review
     quarantine=ReviewedIntegrityQuarantine.from_file(reviewed_quarantine,run) if reviewed_quarantine else None
-    require_review(store,run_id,quarantine)
+    registry=integrity_registry
+    if registry:
+        if registry.store is not store or registry.run_id!=run_id or registry.path.is_relative_to(Path(raw_root).resolve()):
+            raise Incompatible('Registry must bind the same run/store outside trusted raw')
+        try:registry.preflight(quarantine)
+        except SourceUnavailable as error:raise IntegrityStop(error) from error
+    elif store.db.execute("SELECT 1 FROM run_events WHERE run_id=? AND stage='integrity_registry_anchor' LIMIT 1",(run_id,)).fetchone():
+        raise Incompatible('Explicit anchored integrity registry is required for this run')
     if quarantine:quarantine.bind(store)
+    else:require_review(store,run_id,None)
     if len(store.candidates(run_id))!=1000:raise Incompatible('Requires the complete archived1000 cohort before source work')
-    cfg=run['config'];guard=PilotGuard(max_requests)
+    cfg=run['config'];guard=PilotGuard(max_requests,stop_on_source=stop_on_source)
     invocation=str(uuid.uuid4());folder=Path(reports)/run_id/str(size)
     receipt_path=folder/('reviewed-invocation-'+invocation+'.json')
     started=now();mark=time.perf_counter();report=None;failure=None
     with MediaWikiClient(cfg['contact'],user_agent=cfg.get('user_agent') or 'ViMFC/0.1',attempts=cfg['max_attempts']) as client:
         client.client.event_hooks['request'].append(guard.http_request)
         extra={'reviewed_quarantine':quarantine} if quarantine else {}
+        if registry:
+            extra['integrity_registry']=registry
+            client.client.event_hooks['response'].append(registry.capture_response)
         provider=HistoricalProvider(store,run_id,client,RawCache(raw_root),**extra)
-        if hasattr(provider,'source'):provider.source.integrity_guard=guard.source_failure
+        def source_failure(error):
+            diagnostic_error=None
+            if registry and not error.details.get('registry_preflight'):
+                try:
+                    if error.code in INTEGRITY_CODES or re.search(r'mismatch|checksum|corrupt|future revision',str(error),re.I):
+                        registry.capture_error(error,invocation=invocation,charged_attempts=guard.http_attempts,cap=max_requests)
+                    else:
+                        state='MISSING_HISTORICAL_DEPENDENCY' if error.code in ('history_unavailable','historical_content_unavailable') else 'SOURCE_UNAVAILABLE'
+                        registry.observe_status(state,{'code':error.code,'message':str(error),'details':error.details,'root_article':registry.root_article,
+                            'invocation_id':invocation,'charged_attempts':guard.http_attempts})
+                except Exception as registry_write_error:
+                    error.details['integrity_registry_error']={'type':type(registry_write_error).__name__,'message':str(registry_write_error)}
+                    diagnostic_error=True
+            guard.source_failure(error) # Always preserve the original IntegrityStop.
+            if diagnostic_error:raise Incompatible('Integrity registry write failed; original source error: '+str(error)) from error
+        if hasattr(provider,'source'):provider.source.integrity_guard=source_failure
         def progress(event):
             if event.get('status')=='source_failed':
                 row=store.db.execute('SELECT record_json FROM candidate_work WHERE run_id=? AND page_id=?',(run_id,event['page_id'])).fetchone()
                 if row:event={**event,**json.loads(row[0])}
             guard.progress(event)
+            if stop_on_source and (event.get('status')=='source_failed' or
+                event.get('status')=='deferred' and event.get('error_code')!='missing_item_hint'):
+                raise Incompatible('reviewed_source_stop: '+str(event.get('error_code'))+'; checkpoint preserved')
         builder=Builder(store,run_id,provider,reports=reports,progress=progress,
-            max_wait_seconds=max_wait_seconds,retry_rounds=retry_rounds,restore_completed=bool(quarantine))
+            max_wait_seconds=max_wait_seconds,retry_rounds=retry_rounds,restore_completed=bool(quarantine),
+            exploratory_progression=exploratory_progression)
         with ResourceSampler(Path(store.db.execute('PRAGMA database_list').fetchone()[2]).parent,cfg.get('sample_interval_seconds',1)) as sampler:
             try:
                 report=builder.pilot(size)
@@ -143,6 +177,13 @@ def run_reviewed(store,run_id,raw_root,size,*,reports='reports/pilots',max_reque
             folder.mkdir(parents=True,exist_ok=True)
             with audit_path.open('x',encoding='utf-8') as stream:json.dump(audit,stream,ensure_ascii=False,sort_keys=True,indent=2)
             receipt.update(reviewed_quarantine_id=quarantine.review_id,quarantine_audit_path=str(audit_path.resolve()),quarantined_count=len(quarantined))
+        if registry:
+            try:receipt['integrity_registry']=registry.audit()
+            except Exception as registry_error:
+                receipt['integrity_registry_error']={'type':type(registry_error).__name__,'message':str(registry_error)}
+                if failure is None:
+                    failure={'type':'Incompatible','message':'Integrity registry verification failed','exit_code':3,'details':receipt['integrity_registry_error']}
+                    receipt.update(failure=failure,stopped=True,completed=False,data_complete=False,pilot_accepted=False)
         folder.mkdir(parents=True,exist_ok=True)
         with receipt_path.open('x',encoding='utf-8') as stream:json.dump(receipt,stream,ensure_ascii=False,sort_keys=True,indent=2)
         return {**receipt,'receipt':str(receipt_path.resolve()),'exit_code':failure['exit_code'] if failure else 0 if report['data_complete'] else 5}

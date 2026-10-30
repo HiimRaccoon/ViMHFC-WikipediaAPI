@@ -466,3 +466,102 @@ Use focused story suites while iterating, then the cross-cutting checks after in
 5. Human claim writing, semantic verification and benchmark completion remain separate research work. Task completion must never be inferred from software tests or heuristic pair counts.
 
 The end-to-end research MVP is the real frozen corpus plus local human annotation and exact exports. Agentic RAG implementation, automatic claim/label/hop generation, app review workflows and benchmark split design remain out of scope.
+# Seed-only wide inventory and staged verification (2026-10-28)
+
+- [x] Implement versioned seed-only-2 frozen-listing planner with eight unchanged soft quotas, deterministic order, exploration fallback and explicit origins.
+- [x] Implement separate resumable listing checkpoint, dedup, captured-response integrity, cursor/category-cycle bounds, finite requests and durable cooldown.
+- [x] Preserve historical-title validation for archived cohorts; distinguish current discovery titles from historical page-ID evidence for new inventory.
+- [x] Implement opt-in exploratory100→1000 permission separate from completeness/acceptance; retain10000/Production gates.
+- [x] Add offline regressions for new inventory/planning/progression/source-stop paths; focused tests verified before live work.
+- [x] Full offline suite and independent code review before live acquisition:500 passed, exit0; strict optional-source/replay/cap findings fixed before network.
+- [ ] Acquire/freeze actual wide inventory; partial live6848 identities/75 attempts/2HTTP503, stopped after one finite recovery. Coverage/provenance/preservation report: [source blocker](../reports/verification/seed-only-wide-inventory-20261028.md). Minimum60000 not achieved; no pilot-ready freeze.
+- [ ] Prepare new exact1000 Seed-only cohort/private run and independently verify any refusal approval.
+- [ ] Authorized actual Pilot100, offline replay and gate evaluation.
+- [ ] Authorized actual Pilot1000 if gates permit; detailed metrics/reproducibility/preservation report.
+- [ ] Human Valid2-hop evaluation; not supplied by heuristic counts or software tests.
+- [ ] Pilot10000 — requires a separate execution decision.
+- [ ] Production20000 eligible articles — not authorized by the staged pilots.
+
+### Inventory503 reliability follow-up (2026-10-28)
+
+- [x] Reproduce missing HTTP diagnostics and abort telemetry offline; distinguish confirmed client gaps from unproven upstream503 cause.
+- [x] Add safe HTTP/transport receipts, durable host pacing/cooldown/jitter/lease, old-counter preservation and atomic/recoverable freeze publication.
+- [x] Add regressions for503/Retry-After/restart/repeated failures/partial rollback/dedup/budget/lease/publication and corrupt-status telemetry.
+- [x] Final full offline suite and preflight before new source execution:514PASS/exit0/328.66s; old75 attempts and73 response hashes verified read-only, independent review findings fixed.
+- [x] Exactly one new bounded recovery: attempt76 returned503; stopped after1HTTP,6848identities unchanged, no pilot. Target/minimum remain incomplete.
+- [x] Post-run old rows/cursors/73responses PASS;33649durable files unchanged outside authorized current DB; abort resources available. [RCA/results/dumps proposal](../reports/verification/inventory503-reliability-recovery-20261028.md).
+# Dump-based inventory follow-up
+
+- [x] Verify official viwiki20261001 completed metadata jobs, exact sizes, checksums and SQL schema probes.
+- [x] Implement separate dump-inventory-1 downloader/importer/freeze path with seed-only-2 compatibility; no API checkpoint merge.
+- [x] Final offline suite531PASS, independent reviewPASS; actual official metadata download/import/freeze100,000 identities and preservation33,666filesPASS. Evidence: `reports/verification/dump-inventory-viwiki-20261028.md` and `dump-inventory-20261028-054256-729198/final-verification.json`.
+- [ ] Review broad frozen inventory coverage and plan a separately authorized Pilot100→1000; no pilot in dump inventory task.
+
+## Authorized live dump Seed-only follow-up, 28/10/2026
+
+- [x] New private run80524a0f-87fe-4c01-af9f-dfa4b3951899 and deterministic1000cohort from frozen inventory43c2a642; exact qid-5/lead-4/quality-2.1/rank-1 preserved. Full offline531PASS, operator/source/progression controlsPASS.
+- [x] One actual Pilot100:98processed,18eligible,2deferred;1261physical attempts,exit5. Replay98PASS, preservationPASS; scoped progression pins the two hints without changing acceptance flags.
+- [x] One actual Pilot1000 invocation: HARD-STOP new integrity revision24242903/Q10841261 at candidate553/page257633.547processed,88eligible,5deferred,1interrupted,447unattempted;5349physical attempts,exit3. No new quarantine or additional live request after stop.
+- [x] Offline completed-subset replay547PASS, stable prefix98manifests,33698old durable files and private immutable rows preserved. Report: `reports/verification/live-dump-seed-pilot-20261028.md`. 3Bridge/78Comparison are offline subset diagnostics, not a published final1000native report or human claims.
+- [x] New exact-revision RCA/review for Q10841261/revision24242903 completed under later explicit authorization; exact refusal only. Recovery outcome recorded below; cohort remains incomplete.
+- [ ] Completed/accepted Pilot1000, any Pilot10000, Production20000 and external human Valid2-hop evaluation remain outstanding.
+## Exact revision24242903 recovery, same Seed-only run
+
+- [x] Two bounded exact-revision requests; independent SHA-1/SHA-256/UTF-8/model/slot-size comparison with old23640705 case. Exact refusal evidence sufficient; shared underlying cause not proven. RCA: `reports/verification/sha1-revision-24242903-20261028.md`.
+- [x] Append-only refusal-set implementation, downgrade rejection, legacy case-ID restoration, source isolation and regression controls; no research policy/run/cohort changes.
+- [x] Full offline541PASS/exit0, scoped approval set and547 completed checkpoints/manifests verified before the single explicitly authorized recovery; independent review/operator seal controlsPASS.
+- [x] One recovery hard-stopped at NEW Q10766570/revision23658997, ordinal802/page863879;790processed/128eligible/10deferred/1reviewed-quarantine/1interrupted/198unattempted, exit3.2460additional physical attempts; pipeline cumulative9070, plus2RCArequests separately. No new approval or second recovery.
+- [x] Offline790/790replay,547oldmanifests/currentstable and historical rows preserved;42385preexistingfiles checked with only authorized currentDB/WAL exceptions. [Recovery handoff](../reports/verification/seed-integrity-recovery-20261028.md).
+- [ ] New23658997 integrity RCA/disposition and future execution need separately scoped authorization; no wildcard quarantine or automatic resume.
+- [x] Later systematic RCA authorization:3fresh exact API captures confirm all3mismatches;5/6diagnostic requests total (includes1operator API raw misroute and1correct raw415),0Pilot. Official source research identifies deserialize/reserialize mechanism but no exact commoncause proof; historical getSize PHP/bogo-byte caveat corrects prior size inference in a NEW report.
+- [x] Pure offline captured-response inspector/CLI and unverified23658997fixture; no runtime source-validation/approval changes. Final558offlinePASS/exit0/411.44s, independent reviewPASS;790replay/21table-allrows/43234files preserved. [Systematic RCA](../reports/verification/systematic-wikidata-sha1-rca-20261028.md).
+- [ ] User decision on exact case3 refusal-only NOT_APPROVED proposal or verified original source recovery; no approval activation/resume under systematic RCA task.
+- [ ] Pilot10000/Production and human Valid2-hop acceptance remain unauthorized/outstanding.
+
+## Integrity registry and separately authorized case3 recovery
+
+- [x] Implement versioned anchored sidecar, exact observations/dispositions, fail-closed tamper/restart and pre-cache source/materialization guards; no research semantics change.
+- [x] Add22 registry regression cases (including stale capture, shared dependencies and duplicate-work prevention); final full offline580PASS/exit0, focused22PASS and operator10PASS before activation.
+- [x] Prepare exact23658997 component/additive set from independent evidence review and explicit user authorization; preserve old approvals and original events.
+- [x] Independent790 replay/preservation, activation and one-shot recovery within5000 additional physical attempts, followed by985/985 offline/native pair replay and43282-file preservationPASS. Technical Review Handoff: `reports/verification/technical-review-handoff-integrity-registry-20261029.md`. Source/integrity/acceptance remain incomplete; no fourth approval, repeated recovery or Pilot10000/Production.
+- [x] Independent790/43282files prelivePASS; corrected postflight root association (registry provenance, not last completed progress), operator13PASS/independent35PASS. Exactcase3 activated append-only; old2components/receipts preserved.
+- [x] One new guarded recovery23279441-eafd-448b-80f8-67cc4304d973/native attempt0468b56b-5845-4a81-a7ba-036abc9cf5a2 completed processing loop, exit5:985processed162eligible13deferred2quarantines,2134newrequests/cumulative11204. No unknown4th mismatch/APIerrors/retries; data/integrity/acceptance stillfalse. No more source work authorized.
+
+## Groq-assisted classification, separate local experiment
+
+- [x] Official REST provider, secure dotenv, dynamically verified model selection, Vietnamese blind prompt/repository precedence, structural/evidence validation and separate label namespaces.
+- [x] Durable shared Groq ledger/reservations/cooldowns/process lease, HTTP-success replay after publication crash, no repeat of valid/terminal invalid response, bounded free-only smoke/progression.
+- [x] Read-only300-article dataset export and evaluation/human-review CSV+JSONL. Metadata correction version2 keeps original Discovery stratum separate from experiment bucket; initial output retained as intermediate, no inference used it.
+- [x] Final full offline705PASS (125newcontrols+580existing); corrected dataset-v2 manifest ece7a99e23bbd95488abd226e3cc83ff703e33fff23a01d5eaa8f1181ae2e161,300inputs/100peroutcome/65eligible controls;531trustedLeads and454auditedexclusions.
+- [x] Real CLI readiness `LIVE_NOT_RUN_MISSING_API_KEY` (api/.env0bytes, environmentkeyabsent),0authenticatedGroq/0Wikimedia requests/0predictions. Baseline-only evaluation and human-review templates exported; no Accuracy/F1claim. Historical46157files/21tables/90oldcorecodeconfig preservationPASS; handoff `reports/verification/groq-assisted-classification-handoff-20261029.md`.
+- [ ] Actual Free-account/model verification and smoke≤5→bounded300 after localcredentials exist; currentlyNOTRUN, no automatic/scheduledcontinuation. Human-gold evaluation/futureclassification-policy promotion/10k/Production remain separate decisions.
+
+### Free-tier confirmation amendment — 29/10/2026
+
+- [x] Replace mandatory evidence JSON/screenshot/image SHA256 with explicit `GROQ_FREE_TIER_CONFIRMED=true` from local dotenv/environment. Keep default request/token/rate/runtime caps and checkpoint/retry behavior.
+- [x] Nine new confirmation controls; focused Groq134PASS and full offline714PASS. Real preflight `278701e3-7cd8-40b3-a91b-4d762712e7aa` stopped `LIVE_NOT_RUN_MISSING_API_KEY`,0requests/0predictions. Confirmation is true, but no key assignment is present in the saved local env at execution.
+- [x] Smoke≤5 after credentials became readable: completed under the later tokenizer amendment below. This authorization does **not** permit300. Initial missing-key handoff remains `reports/verification/groq-free-confirmation-smoke-20261029.md`.
+
+### Qwen Free defaults and tokenized smoke continuation — 29/10/2026
+
+- [x] Apply published Qwen Free30RPM/1000RPD/8000TPM/200000TPD; observed provider headers can lower limits. Pin official CPU tokenizer/config and explicit embedded template; persist token estimates independently of actual usage, including schema/output reservation.
+- [x] RED/GREEN for defaults, estimator/tamper and temporary reset versus oversized request; exact-window timing fix. Focused142PASS and full722PASS/418.99s before live.
+- [x] Native smoke5PASS, invocation a2c62d8d-7019-4335-9c8b-dd813b4eb6e0: Mustamäe cached once,4new completions,5new physical attempts,0errors. New4092tokens; total5responses4792tokens; cumulative ledger8attempts. Source8files/21tables/88354rows and old ledger rows unchanged.
+- [x] Report `reports/verification/groq-tokenizer-smoke5-20261029.md`. No300/no source-policy mutation/no commit/push; semantic correctness and human evaluation remain unassessed.
+
+### Authorized Groq300 execution — 29/10/2026
+
+- [x] User explicitly authorized300distinct frozen dataset-v2 articles, blindQwen3.8 with cached5, unchanged prompt/schema/source. Authenticated preflight and cache-only smokePASS; native prefixes50/100/150 complete, prefix200paused.
+- [x] Execute finite cumulative310attempt/600000token budgets including old8attempts/4792tokens, unchanged Free30/1000/8000/200000 and1800s envelope. Actual stop day_rate_limit at179responses/151predictions/28abstentions/0invalid/121pending, exit5,1735.11s. No extra invocation or scheduled next-day work.
+- [x] New174completions+6model lookups=180HTTPattempts/194527actual tokens; cumulative188attempts/199319charged tokens. Remaining122attempts/400681experiment tokens; local day681tokens cannot fit next1163reservation. No duplicate successful requests.
+- [x] Three-view/reference-only evaluation, per-group/reason/stratum outputs, full and blind300human-review exports with blank gold, two exact historical priority cards. Reference agreement76/81is not human accuracy;70suggestions for baselineunknown remain unverified.
+- [x] Fresh145targeted controls plus supplemental4tests (overlap); unchanged product full722PASS remains prior acceptance evidence. Source8files/21tables/88354rows, alloldledgerrows and46196historical files preserved. No source/corpus/registry writes, no commit/push. Handoff `reports/verification/groq300-technical-review-handoff-20261029.md`.
+- [ ] Remaining121inferences require later explicit manual resume with existing config/ledger and sufficient quota.122remainingrequests cover121completions+1model lookup with0retry/probe headroom; no budget resets. Human gold/adjudication and production promotion remain unassessed/out of scope.
+
+### Human Review Preparation — 30/10/2026
+
+- [x] New offline review tools select11from179existing responses:8purposive diagnostics (all5disagreements,2priority cases,1additionalScience probe) +3seeded conditional stratum draws (one per baseline outcome; unresolveddependency-missing quota). Frozen seed20261030/manifest d33cb23c625450bc581dea8279288fc691fcc53beafe125f54ac2690b4f44c66.
+- [x] BLIND editableCSV/JSONL with source title/Lead/all sentenceIDs and empty human fields; machine labels/strata/partitions kept only in coordinator comparison/manifest. Same inputs/order/selection reproducible; no source dataset regeneration.
+- [x] Import requires pinned manifest, immutable source identity, valid human reviewer/date and exactly one group/uncertain/out-of-taxonomy decision. Report A/B/C separately bydiagnostic/random partition; uncertainty excluded from gold, OOTbehavior separate, no population accuracy claim or source promotion.
+- [x] RED/GREEN including strict bool-versus-integer sentenceidentity. Focused159PASS; final full739PASS/327.95s. Actual blank import AWAITING_HUMAN_LABELS/0reviewed/metricsnull. Source12files/21tables/88354rows and APIledger179results/188attempts unchanged;0newAPI,121pendingnotresumed. Handoff `reports/verification/groq-human-review-preparation-20261030.md`.
+- [ ] Actual human labeling/adjudication and subsequent scoped metrics await user-provided labels; do not generate gold, resume Groq, or promote classification automatically.

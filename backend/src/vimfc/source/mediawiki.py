@@ -5,10 +5,19 @@ from email.utils import parsedate_to_datetime
 import threading
 import time
 import os
+import hashlib
+import math
 import httpx
 from vimfc.domain import SourceUnavailable
 
 ENDPOINTS = {'viwiki':'https://vi.wikipedia.org/w/api.php', 'wikidata':'https://www.wikidata.org/w/api.php'}
+
+DIAGNOSTIC_HEADERS={'retry-after','date','server','via','x-cache','x-cache-status','x-request-id',
+    'x-correlation-id','x-served-by','x-timer','content-type','content-length','age','server-timing','x-envoy-upstream-service-time','x-database-lag'}
+DIAGNOSTIC_PARAMS={'action','list','prop','cmtitle','cmnamespace','cmtype','cmprop','cmlimit','cmcontinue',
+    'continue','apnamespace','apfilterredir','aplimit','apcontinue','apprefix','curtimestamp','pageids','titles',
+    'revids','rvstart','rvdir','rvlimit','rvprop','rvslots','ppprop','format','formatversion','maxlag',
+    'letype','lestart','leend','ledir','lelimit','leprop'}
 
 
 class MediaWikiClient:
@@ -27,6 +36,7 @@ class MediaWikiClient:
         self.cooldowns={}
         self.cooldown_store=None
         self.wikidata_health=None
+        self.last_response_details={}
 
     def enable_wikidata_health(self,store):
         from .health import WikidataHealth
@@ -67,20 +77,31 @@ class MediaWikiClient:
             for attempt in range(limit):
                 wait = min(60,2 ** attempt)
                 retryable = False
+                self.last_response_details={}
                 self.metrics[f'{site}:{self.stage}:{params.get("list",params.get("prop","other"))}:requests'] += 1
                 try:
                     started=time.perf_counter()
                     response = self.client.get(ENDPOINTS[site],params=query)
                     self.metrics[f'{site}:{self.stage}:request_seconds'] += time.perf_counter()-started
                     retry = response.headers.get('Retry-After')
+                    retry_seconds=None
                     if retry:
                         try:
-                            wait = max(wait,float(retry))
+                            retry_seconds=max(0,float(retry))
                         except ValueError:
                             try:
-                                wait = max(wait,(parsedate_to_datetime(retry)-datetime.now(timezone.utc)).total_seconds())
+                                retry_seconds=max(0,(parsedate_to_datetime(retry)-datetime.now(timezone.utc)).total_seconds())
                             except (ValueError,TypeError):
                                 pass
+                        if retry_seconds is not None and not math.isfinite(retry_seconds):retry_seconds=None
+                        if retry_seconds is not None:wait=max(wait,retry_seconds)
+                    self.last_response_details={'status':response.status_code,'endpoint':ENDPOINTS[site],
+                        'request_context':{k:v for k,v in query.items() if k in DIAGNOSTIC_PARAMS},
+                        'response_headers':{k:v[:1024] for k,v in response.headers.items() if k.lower() in DIAGNOSTIC_HEADERS},
+                        'retry_after_seconds':retry_seconds,'request_seconds':time.perf_counter()-started,
+                        'body_length':len(response.content),'body_sha256':hashlib.sha256(response.content).hexdigest(),
+                        'body_hash_scope':'decoded HTTP response body, not trusted revision content',
+                        'proxy_environment_present':{k:bool(os.environ.get(k)) for k in ('HTTP_PROXY','HTTPS_PROXY','ALL_PROXY','NO_PROXY')}}
                     retryable = response.status_code == 429 or response.status_code >= 500
                     if response.status_code >= 400:
                         raise SourceUnavailable(f'HTTP {response.status_code}',retryable=retryable,code='http_'+str(response.status_code))
@@ -93,8 +114,9 @@ class MediaWikiClient:
                             wait = max(5,wait)
                         raise SourceUnavailable(f'{code}: {error.get("info", "API error")}',retryable=retryable,code=code)
                     return payload
-                except (httpx.TimeoutException,httpx.NetworkError) as error:
-                    failure = SourceUnavailable(str(error),retryable=True,code='network_timeout')
+                except httpx.TransportError as error:
+                    failure = SourceUnavailable(str(error),retryable=True,code='proxy_error' if isinstance(error,httpx.ProxyError) else 'network_timeout',
+                        details={'transport_exception':type(error).__name__,'endpoint_url':ENDPOINTS[site]})
                 except (ValueError, httpx.DecodingError) as error:
                     failure = SourceUnavailable(f'Invalid API JSON: {error}',retryable=False)
                 except SourceUnavailable as error:
@@ -103,6 +125,7 @@ class MediaWikiClient:
                 self.metrics[f'{site}:{self.stage}:error_code:{failure.code}'] += 1
                 failure.details.update({'site':site,'stage':self.stage,'attempts':attempt+1,'endpoint':params.get('list',params.get('prop','other')),
                     **{k:params[k] for k in ('titles','pageids','revids','rvstart') if k in params}})
+                if self.last_response_details:failure.details['http']=self.last_response_details
                 if site=='wikidata' and self.wikidata_health and failure.code=='maxlag':
                     failure.retry_at=(datetime.now(timezone.utc)+timedelta(seconds=wait)).isoformat().replace('+00:00','Z')
                     self.wikidata_health.trip(failure,probe_token=probe_token)

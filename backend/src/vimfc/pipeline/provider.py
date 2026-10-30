@@ -19,15 +19,24 @@ from .runner import StageExecutor
 
 
 class HistoricalProvider:
-    def __init__(self,store,run_id,client,cache,*,identities=None,wikidata=None,reviewed_quarantine=None):
+    def __init__(self,store,run_id,client,cache,*,identities=None,wikidata=None,reviewed_quarantine=None,integrity_registry=None):
         from .quarantine import require_review
         require_review(store,run_id,reviewed_quarantine)
+        if integrity_registry is None and store.db.execute("SELECT 1 FROM run_events WHERE run_id=? AND stage='integrity_registry_anchor' LIMIT 1",(run_id,)).fetchone():
+            from vimfc.domain import Incompatible
+            raise Incompatible('Explicit anchored integrity registry is required for this run')
+        if integrity_registry:
+            if integrity_registry.store is not store or integrity_registry.run_id!=run_id:
+                from vimfc.domain import Incompatible
+                raise Incompatible('Integrity registry is bound to a different run/store')
+            integrity_registry.preflight(reviewed_quarantine)
         self.store,self.client=store,client
         self.reviewed_quarantine=reviewed_quarantine
         self.run=store.run(run_id)
         self.config=self.run['config']
         self.source=RevisionSource(client,store,cache,self.config['known_revision_batch'])
         self.source.reviewed_quarantine=reviewed_quarantine
+        self.source.integrity_registry=integrity_registry
         self.identities=identities or HistoricalIdentities(self.source,self.run['snapshot'])
         self.wikidata=wikidata or WikidataSource(self.source,self.run['snapshot'],self.config['classification'])
         self.collector=CandidateCollector(client,self.identities,self.config)
@@ -62,7 +71,8 @@ class HistoricalProvider:
             raise SourceUnavailable('Candidate is not historical wikitext')
         if self.config.get('discovery'):
             from vimfc.domain import Incompatible
-            if normalize_title(raw.ref.title)!=normalize_title(candidate['title']):raise Incompatible('Sealed discovery canonical title changed')
+            metadata_only=(self.config['discovery'].get('version')=='seed-only-2' and candidate.get('discovery_metadata_only') is True)
+            if not metadata_only and normalize_title(raw.ref.title)!=normalize_title(candidate['title']):raise Incompatible('Sealed discovery canonical title changed')
             self._discovery_namespace(raw)
         return raw
 
@@ -152,6 +162,7 @@ class HistoricalProvider:
         return qid
 
     def process_dependencies(self,candidate):
+        if self.source.integrity_registry:self.source.integrity_registry.set_root(candidate)
         if not self.config['classification'].get('dependency_policy'):return {}
         if self.config['classification']['dependency_policy']['version']=='primary-first-1':self._prepared.clear()
         raw=self._raw(candidate);article=article_identity(raw);qid=self._pinned_qid(raw)

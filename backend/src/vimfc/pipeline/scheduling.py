@@ -18,7 +18,7 @@ def transient_source_code(code):
             return status == 429 or status >= 500
         except ValueError:
             return False
-    return code in {'maxlag', 'host_cooldown', 'ratelimited', 'readonly', 'network_timeout',
+    return code in {'maxlag', 'host_cooldown', 'ratelimited', 'readonly', 'network_timeout', 'proxy_error',
                     'stage_cooldown', 'stage_lease', 'host_circuit_open', 'internal_api_error_DBConnectionError'}
 
 

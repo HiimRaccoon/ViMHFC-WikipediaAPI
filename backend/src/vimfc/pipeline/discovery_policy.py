@@ -132,5 +132,10 @@ def plan_cohort(inventory,policy,variant,budget):
     return {**body,'manifest_id':digest(body)}
 
 def verify_cohort(manifest,inventory):
+    if manifest.get('policy',{}).get('version')=='seed-only-2':
+        from .seed_only import plan_seed_cohort
+        expected=plan_seed_cohort(inventory,manifest['policy'],manifest['candidate_budget'])
+        if manifest!=expected:raise Incompatible('Seed-only manifest differs from deterministic plan')
+        return
     expected=plan_cohort(inventory,manifest['policy'],manifest['variant'],manifest['candidate_budget'])
     if manifest!=expected:raise Incompatible('Discovery manifest differs from deterministic plan')

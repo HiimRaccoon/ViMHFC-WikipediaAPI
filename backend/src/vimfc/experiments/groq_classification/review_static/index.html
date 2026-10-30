@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ViMHFC · Human Review</title><link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header><div><span class="wordmark">ViMHFC</span><span class="separator">/</span> Human Review</div><span class="badge">Historical snapshot · 25.10.2026</span></header>
+  <div class="layout">
+    <aside>
+      <div class="eyebrow">CLASSIFICATION STUDY</div><h1>Đọc. Đánh giá.<br>Giữ bằng chứng.</h1>
+      <p class="muted">Đánh giá chủ thể bài từ Lead lịch sử. Mỗi quyết định của bạn được lưu cùng người review và lịch sử sửa.</p>
+      <div class="progress-label"><strong id="progress-text">Đang tải…</strong><span id="progress-percent"></span></div>
+      <progress id="progress" max="100" value="0"></progress>
+      <label for="article-nav">Chuyển tới bài</label><select id="article-nav"></select>
+      <button id="resume" class="secondary">Tiếp tục bài chưa review</button>
+      <div class="aside-rule"></div>
+      <details><summary>Hướng dẫn &amp; taxonomy</summary><pre id="guide" class="guide"></pre></details>
+      <div class="aside-rule"></div>
+      <div class="eyebrow">DỮ LIỆU REVIEW</div>
+      <div class="button-row"><a class="button secondary" href="/api/export?format=csv">Xuất CSV</a><a class="button secondary" href="/api/export?format=jsonl">Xuất JSONL</a></div>
+      <label class="file-label">Import nhãn người<input type="file" id="import-file" accept=".csv,.jsonl"></label>
+      <button id="evaluate" class="secondary">Xem evaluation</button>
+      <p class="small muted">Nhãn chỉ dùng cho evaluation. Không tự cập nhật corpus hoặc eligibility.</p>
+    </aside>
+    <main>
+      <div id="message" role="status" hidden></div>
+      <div class="article-top"><div><span class="eyebrow" id="article-index"></span><h2 id="title">Đang tải article…</h2></div><span class="badge blind" id="blind-status">BLIND REVIEW</span></div>
+      <p class="small muted" id="provenance"></p>
+      <div class="notice" id="exposure" hidden>Comparison đã được mở cho bài này. Những chỉnh sửa tiếp theo được ghi nhận là đã xem nhãn hệ thống.</div>
+      <section class="card"><div class="section-heading"><h3>Historical Lead</h3><span class="muted small">Chọn câu bên dưới làm bằng chứng</span></div><p id="lead" class="lead"></p><div id="sentences"></div></section>
+      <form id="semantic-form" class="card">
+        <div class="section-heading"><h3>Đánh giá của bạn</h3><span id="revision" class="small muted">Chưa lưu</span></div>
+        <fieldset><legend>1. Chủ thể bài có thuộc taxonomy?</legend><div id="membership-options" class="choices"></div></fieldset>
+        <div id="primary-field" hidden><label for="primary">2. Primary group theo precedence</label><select id="primary"><option value="">Chọn nhóm…</option></select><p class="small muted" id="precedence"></p></div>
+        <fieldset><legend>3. Mức chắc chắn</legend><div class="certainty"><label><input type="radio" name="confidence" value="high"> High</label><label><input type="radio" name="confidence" value="medium"> Medium</label><label><input type="radio" name="confidence" value="low"> Low</label></div></fieldset>
+        <label for="notes">4. Notes / nguyên nhân chưa chắc chắn</label><textarea id="notes" rows="3" placeholder="Căn cứ, cách hiểu khác, hoặc thông tin còn thiếu…"></textarea>
+        <div class="form-grid"><div><label for="reviewer">Reviewer</label><input id="reviewer" autocomplete="name" placeholder="Tên của bạn" required></div><div><label for="timestamp">Review timestamp</label><input id="timestamp" readonly><span class="small muted">Ghi giờ thực tế khi Save, gồm timezone.</span></div></div>
+        <div class="save-row"><button id="save" type="submit" class="primary">Save nhãn</button><span id="draft-status" class="small muted">Chưa có nhãn người</span></div>
+      </form>
+      <nav class="navigation"><button id="previous" class="secondary">← Previous</button><button id="history-button" class="secondary">Lịch sử sửa</button><button id="next" class="secondary">Next →</button></nav>
+      <section class="card" id="after-save" hidden><div class="section-heading"><h3>So sánh &amp; historical evidence</h3><span class="badge">SAU KHI SAVE</span></div><p class="muted">Nhãn semantic và xác minh nguồn lịch sử là hai bước riêng. Thiếu bằng chứng trong cache không chứng minh bằng chứng không tồn tại tại snapshot.</p><button id="reveal" class="secondary">Mở Human vs Groq vs qid-5 &amp; audit</button>
+        <div id="comparison" hidden>
+          <div id="comparison-cards" class="comparison-grid"></div><p id="availability" class="notice"></p>
+          <details><summary>Ontology paths, diagnostics &amp; revision provenance</summary><pre id="evidence-json"></pre></details>
+          <form id="audit-form"><h3>Historical evidence audit</h3><p id="audit-stale" class="notice" hidden>Nhãn semantic đã thay đổi. Cần audit lại revision hiện tại.</p>
+            <label for="verification">Kết luận theo evidence hiện có</label><select id="verification"><option value="">Chọn kết luận…</option></select>
+            <label for="verified-group">Nhóm được historical policy xác minh (chỉ khi VERIFIED)</label><select id="verified-group"><option value="">Không xác minh nhóm</option></select>
+            <label>Historical evidence references đã kiểm tra</label><div id="audit-refs" class="reference-list"></div>
+            <label>Error tags cho Groq (chỉ chọn khi đã xác định)</label><div id="error-tags" class="tag-options"></div>
+            <label for="audit-notes">Lý do kết luận audit</label><textarea id="audit-notes" rows="3"></textarea>
+            <label for="auditor">Auditor</label><input id="auditor" placeholder="Tên người audit">
+            <div class="save-row"><button type="submit" class="primary">Save audit riêng</button><span id="audit-status" class="small muted"></span></div>
+          </form>
+        </div>
+      </section>
+      <section class="card" id="history-panel" hidden><h3>Lịch sử sửa nhãn &amp; audit</h3><pre id="history-json"></pre></section>
+      <section class="card" id="metrics-panel" hidden><h3>Evaluation · từng partition riêng</h3><p class="muted">Không có nhãn người thì metrics là UNASSESSED. Không suy ra accuracy cho 179/300 bài hay toàn corpus.</p><div id="metric-summary"></div><details><summary>Chi tiết RQ1 / RQ2 / RQ3 &amp; denominators</summary><pre id="metrics-json"></pre></details></section>
+      <footer>ViMHFC research workspace · Human decisions, historical evidence.</footer>
+    </main>
+  </div>
+</body>
+</html>

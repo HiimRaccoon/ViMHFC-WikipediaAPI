@@ -66,7 +66,7 @@ def prepare_experiment(context,config,inventory,plan,output_dir,*,source_review=
     if output.exists() or output==source_db.parent or output.is_relative_to(raw_root) or output.is_relative_to(source_db.parent):
         raise Incompatible('Use a NEW isolated output directory outside historical database/raw directories')
     cfg=deepcopy(config);cfg['version']='pipeline-7'
-    cfg['discovery']={'version':VERSION,'variant':plan['variant'],'inventory_id':inventory['inventory_id'],'manifest_id':plan['manifest_id'],'cohort_hash':plan['cohort_hash'],'namespace_policy':'historical-title-namespace-1'}
+    cfg['discovery']={'version':plan['policy']['version'],'variant':plan['variant'],'inventory_id':inventory['inventory_id'],'manifest_id':plan['manifest_id'],'cohort_hash':plan['cohort_hash'],'namespace_policy':'historical-title-namespace-1'}
     approval=None
     with sqlite3.connect(source_db.as_uri()+'?mode=ro',uri=True) as source:
         source.row_factory=sqlite3.Row
@@ -91,7 +91,7 @@ def prepare_experiment(context,config,inventory,plan,output_dir,*,source_review=
         if store.candidates(run_id):raise Incompatible('Incompatible discovery unexpectedly inherited candidates')
         store.db.executemany('INSERT INTO candidates VALUES (?,?,?,?)',[(run_id,c['page_id'],i,canonical(c)) for i,c in enumerate(plan['candidates'])])
         store.event(run_id,'configuration_source',{'path':str(config_path)})
-        store.event(run_id,'discovery_cohort',{'manifest_id':plan['manifest_id'],'inventory_id':inventory['inventory_id'],'version':VERSION})
+        store.event(run_id,'discovery_cohort',{'manifest_id':plan['manifest_id'],'inventory_id':inventory['inventory_id'],'version':plan['policy']['version']})
         # Carry future negative-hint TTLs, not semantic derived results. This
         # prevents a new discovery run from bypassing source etiquette.
         cols=[r[1] for r in store.db.execute('PRAGMA table_info(stage_results)')];tail=','.join('s.'+name for name in cols[1:])

@@ -1,0 +1,11 @@
+{
+  "status": "BLIND_UI_READY",
+  "actual_packet_articles": 90,
+  "actual_human_labels": 0,
+  "comparison_locked": true,
+  "metrics": "UNASSESSED",
+  "new_api_requests": 0,
+  "browser": "Installed Chrome, headless",
+  "only_read_requests": true,
+  "page_errors": []
+}

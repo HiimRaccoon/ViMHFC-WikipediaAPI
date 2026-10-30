@@ -1,0 +1,68 @@
+{
+  "evaluation_random": {
+    "count": 60,
+    "baseline_outcomes": {
+      "unclassified": 19,
+      "unresolved": 9,
+      "completed": 32
+    },
+    "groq_groups": {
+      "Science / Technology": 9,
+      "Event": 3,
+      "Location": 5,
+      "Creative Work": 12,
+      "Organization": 3,
+      "Award / Competition": 7,
+      "__abstain__": 7,
+      "Person": 11,
+      "Landmark / Facility": 3
+    },
+    "baseline_reasons": {
+      "no_supported_rule": 19,
+      "primary_dependency_missing": 3,
+      "__verified__": 32,
+      "primary_ambiguity": 6
+    }
+  },
+  "diagnostic_targeted": {
+    "count": 30,
+    "baseline_outcomes": {
+      "unresolved": 14,
+      "unclassified": 12,
+      "completed": 4
+    },
+    "groq_groups": {
+      "Location": 6,
+      "Award / Competition": 2,
+      "__abstain__": 4,
+      "Creative Work": 2,
+      "Organization": 2,
+      "Landmark / Facility": 6,
+      "Event": 5,
+      "Science / Technology": 3
+    },
+    "baseline_reasons": {
+      "primary_dependency_missing": 4,
+      "no_supported_rule": 12,
+      "__verified__": 4,
+      "primary_ambiguity": 10
+    }
+  },
+  "manifest_id": "4aec69e7ea99315d7911592121d982c9da5fadbb9189a720f1de9098d5b76cd9",
+  "required_old_cases": {
+    "HR01": 19959161,
+    "HR02": 191429,
+    "HR03": 452233,
+    "HR04": 518055,
+    "HR05": 19357117,
+    "HR06": 3190416,
+    "HR07": 19836772,
+    "HR08": 19569090,
+    "HR09": 1552286,
+    "HR10": 19650744,
+    "HR11": 3701511
+  },
+  "all_old_cases_in_union": true,
+  "frame_cells": 20,
+  "reference_disagreements_in_union": true
+}

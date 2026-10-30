@@ -1,0 +1,126 @@
+{
+  "accepted_corpus_promotion": false,
+  "format": "vimfc-review-quality-evaluation-1",
+  "manifest_id": "4aec69e7ea99315d7911592121d982c9da5fadbb9189a720f1de9098d5b76cd9",
+  "metric_policy": "RQ1 excludes INSUFFICIENT/AMBIGUOUS from decided IN/OUT. RQ2 uses human IN only, with model abstention/unresolved counted wrong; Macro-F1 includes all 8 groups, zero division=0, supports disclosed. RQ3 counts only saved non-abstaining suggestions for original qid-5 gaps. Historical verification is separate and audit-bound to semantic revision. All rates have explicit denominators; pending human records are not gold.",
+  "partitions": {
+    "diagnostic_targeted": {
+      "approach_coverage": {
+        "groq_only": {
+          "reviewed_assigned": 0,
+          "reviewed_denominator": 0,
+          "selected_assigned": 26,
+          "selected_denominator": 30
+        },
+        "qid5_baseline": {
+          "reviewed_assigned": 0,
+          "reviewed_denominator": 0,
+          "selected_assigned": 4,
+          "selected_denominator": 30
+        },
+        "wikidata_first_suggestions": {
+          "reviewed_assigned": 0,
+          "reviewed_denominator": 0,
+          "selected_assigned": 26,
+          "selected_denominator": 30
+        }
+      },
+      "audited_count": 0,
+      "groq_error_tags": {},
+      "membership_counts": {},
+      "pending_count": 30,
+      "per_group_human_support": {
+        "Award / Competition": 0,
+        "Creative Work": 0,
+        "Event": 0,
+        "Landmark / Facility": 0,
+        "Location": 0,
+        "Organization": 0,
+        "Person": 0,
+        "Science / Technology": 0
+      },
+      "reviewed_count": 0,
+      "rq1": null,
+      "rq2": null,
+      "rq3": null,
+      "science_technology_probe": {
+        "human_other_group_assigned_science": 0,
+        "human_out_assigned_science": 0,
+        "reviewed_science_suggestions": 0
+      },
+      "selected_count": 30,
+      "small_sample_groups": [
+        "Person",
+        "Organization",
+        "Location",
+        "Event",
+        "Creative Work",
+        "Award / Competition",
+        "Landmark / Facility",
+        "Science / Technology"
+      ],
+      "warning": "Group support <5 is too small for a confirmed quality claim. Metrics describe reviewed cases in this partition only; no pooled headline or population estimate."
+    },
+    "evaluation_random": {
+      "approach_coverage": {
+        "groq_only": {
+          "reviewed_assigned": 0,
+          "reviewed_denominator": 0,
+          "selected_assigned": 53,
+          "selected_denominator": 60
+        },
+        "qid5_baseline": {
+          "reviewed_assigned": 0,
+          "reviewed_denominator": 0,
+          "selected_assigned": 32,
+          "selected_denominator": 60
+        },
+        "wikidata_first_suggestions": {
+          "reviewed_assigned": 0,
+          "reviewed_denominator": 0,
+          "selected_assigned": 53,
+          "selected_denominator": 60
+        }
+      },
+      "audited_count": 0,
+      "groq_error_tags": {},
+      "membership_counts": {},
+      "pending_count": 60,
+      "per_group_human_support": {
+        "Award / Competition": 0,
+        "Creative Work": 0,
+        "Event": 0,
+        "Landmark / Facility": 0,
+        "Location": 0,
+        "Organization": 0,
+        "Person": 0,
+        "Science / Technology": 0
+      },
+      "reviewed_count": 0,
+      "rq1": null,
+      "rq2": null,
+      "rq3": null,
+      "science_technology_probe": {
+        "human_other_group_assigned_science": 0,
+        "human_out_assigned_science": 0,
+        "reviewed_science_suggestions": 0
+      },
+      "selected_count": 60,
+      "small_sample_groups": [
+        "Person",
+        "Organization",
+        "Location",
+        "Event",
+        "Creative Work",
+        "Award / Competition",
+        "Landmark / Facility",
+        "Science / Technology"
+      ],
+      "warning": "Group support <5 is too small for a confirmed quality claim. Metrics describe reviewed cases in this partition only; no pooled headline or population estimate."
+    }
+  },
+  "population_accuracy_claim": false,
+  "reviewed_count": 0,
+  "selected_count": 90,
+  "status": "UNASSESSED"
+}

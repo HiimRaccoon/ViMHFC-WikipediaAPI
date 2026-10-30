@@ -25,6 +25,7 @@ class RevisionSource:
         self.client, self.store, self.cache = client,store,cache
         self.integrity_guard=integrity_guard
         self.reviewed_quarantine=None
+        self.integrity_registry=None
         self.batch_size = min(20,max(1,batch_size))
         self.cache_hits = 0
         self.cache_lookups = 0
@@ -52,6 +53,7 @@ class RevisionSource:
         if row:
             self.cache_hits += 1
             ref=SourceRevisionRef(**json.loads(row[0]))
+            if self.integrity_registry:self.integrity_registry.check(ref,self.reviewed_quarantine)
             if self.reviewed_quarantine:self.reviewed_quarantine.check(ref)
             return ref
         selector = {'pageids':identity} if identity.isdecimal() else {'titles':identity}
@@ -70,6 +72,7 @@ class RevisionSource:
         if not at_or_before(revision['timestamp'],snapshot):
             raise SourceUnavailable('Source returned a future revision')
         ref = SourceRevisionRef(site,identity,page['pageid'],page['title'],revision['revid'],utc(revision['timestamp']),snapshot,payload.get('curtimestamp'))
+        if self.integrity_registry:self.integrity_registry.check(ref,self.reviewed_quarantine)
         if self.reviewed_quarantine:self.reviewed_quarantine.check(ref)
         self.store.db.execute('INSERT OR IGNORE INTO snapshot_revision_refs VALUES (?,?,?,?)',(site,identity,snapshot,canonical(ref)))
         canonical_ref=replace(ref,identity=str(ref.page_id))
@@ -79,6 +82,9 @@ class RevisionSource:
 
     @guarded_validation
     def fetch_revisions(self, site, refs, *, recover_missing=False):
+        if self.integrity_registry:
+            for ref in refs:
+                if ref.site==site:self.integrity_registry.check(ref,self.reviewed_quarantine)
         if self.reviewed_quarantine:
             for ref in refs:
                 if ref.site==site:self.reviewed_quarantine.check(ref)

@@ -11,9 +11,13 @@ dependencies = ["fastapi>=0.115,<1", "pydantic>=2.10,<3", "httpx>=0.28,<1", "mwp
 
 [project.optional-dependencies]
 test = ["pytest>=8,<10"]
+groq = ["tokenizers>=0.22,<1", "jinja2>=3.1,<4"]
 
 [project.scripts]
 vimfc = "vimfc.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"vimfc.experiments.groq_classification" = ["review_static/*.html", "review_static/*.css", "review_static/*.js"]

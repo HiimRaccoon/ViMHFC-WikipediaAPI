@@ -9,6 +9,8 @@ class DependencySource:
         self.source,self.snapshot,self.rules=source,snapshot,rules
 
     def _item(self,qid,raw):
+        registry=getattr(self.source,'integrity_registry',None)
+        if registry:registry.check(raw.ref,getattr(self.source,'reviewed_quarantine',None))
         quarantine=getattr(self.source,'reviewed_quarantine',None)
         if quarantine:quarantine.check(raw.ref)
         try:
@@ -87,6 +89,9 @@ class DependencySource:
             ref=SourceRevisionRef('wikidata',node['qid'],node['page_id'],node['qid'],node['revision_id'],node['revision_timestamp'],self.snapshot)
             refs.append(ref)
         quarantine=getattr(self.source,'reviewed_quarantine',None)
+        registry=getattr(self.source,'integrity_registry',None)
+        if registry:
+            for ref in refs:registry.check(ref,quarantine)
         if quarantine:
             for ref in refs:quarantine.check(ref)
         if not allow_fetch:

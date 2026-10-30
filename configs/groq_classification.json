@@ -1,0 +1,24 @@
+{
+  "version": "groq-classification-1",
+  "model_id": null,
+  "mode": "assisted",
+  "max_output_tokens": 256,
+  "timeout_seconds": 30,
+  "max_requests": 310,
+  "max_total_tokens": 600000,
+  "rpm": 30,
+  "rpd": 1000,
+  "tpm": 8000,
+  "tpd": 200000,
+  "max_attempts": 2,
+  "max_wait_seconds": 60,
+  "max_runtime_seconds": 1800,
+  "free_tier_confirmed": false,
+  "model_limit_caps": {
+    "qwen/qwen3.8-27b": {"rpm": 30, "rpd": 1000, "tpm": 8000, "tpd": 200000},
+    "openai/gpt-oss-20b": {"rpm": 30, "rpd": 1000, "tpm": 8000, "tpd": 200000},
+    "openai/gpt-oss-120b": {"rpm": 30, "rpd": 1000, "tpm": 8000, "tpd": 200000},
+    "qwen/qwen3-32b": {"rpm": 5, "rpd": 90, "tpm": 5000, "tpd": 100000}
+  },
+  "limit_provenance": "https://console.groq.com/docs/rate-limits checked2026-10-29; legacyQwen caps conservative/unverified, actualheaders may reduce. No modelavailability/billing guarantee."
+}

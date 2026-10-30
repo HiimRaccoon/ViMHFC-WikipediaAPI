@@ -44,6 +44,35 @@ def test_missing_hint_or_policy_outcome_is_not_relabelled_integrity():
     assert guard.last_candidate==2
 
 
+def test_seed_strict_source_stop_writes_receipt_and_does_not_visit_peers(tmp_path,config,monkeypatch):
+    from copy import deepcopy
+    from vimfc.domain import canonical
+    import vimfc.pipeline.reviewed_pilot as module
+    calls=[]
+    class Provider:
+        def __init__(self,*args):pass
+        def process(self,candidate):
+            calls.append(candidate['page_id'])
+            raise SourceUnavailable('source paused',code='maxlag',retryable=True,retry_at='2100-01-01T00:00:00Z')
+    monkeypatch.setattr(module,'HistoricalProvider',Provider)
+    cfg=deepcopy(config);cfg['contact']='fixture@example.test'
+    with PipelineStore(tmp_path/'db') as store:
+        run=store.create('2026-10-25T03:00:00Z',cfg)
+        store.db.executemany('INSERT INTO candidates VALUES (?,?,?,?)',[(run,i,i,canonical({'page_id':i,'title':str(i)})) for i in range(1,1001)])
+        result=module.run_reviewed(store,run,tmp_path/'raw',100,reports=tmp_path/'reports',max_requests=10,stop_on_source=True)
+        assert calls==[1] and result['stopped'] and not result['completed']
+        assert result['checkpoint_counts']=={'deferred':1}
+        assert result['source_http_attempts']==0 and not result['pilot_accepted']
+
+
+@pytest.mark.parametrize('code,retryable',[('maxlag',True),('http_403',False),('permissiondenied',False)])
+def test_strict_source_guard_cannot_publish_transient_optional_frontier(code,retryable):
+    from vimfc.pipeline.reviewed_pilot import PilotGuard
+    guard=PilotGuard(10,progress=False,stop_on_source=True)
+    with pytest.raises(Incompatible,match='source_stop'):
+        guard.source_failure(SourceUnavailable('optional source failure',code=code,retryable=retryable))
+
+
 def test_untyped_revision_identity_failure_also_stops():
     from vimfc.pipeline.reviewed_pilot import PilotGuard
     guard=PilotGuard(10,progress=False)

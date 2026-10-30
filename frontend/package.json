@@ -9,7 +9,8 @@
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:review": "playwright test --config=playwright.review.config.ts"
   },
   "dependencies": {"react": "^19.1.0", "react-dom": "^19.1.0"},
   "devDependencies": {

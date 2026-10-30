@@ -129,12 +129,20 @@ class PilotControls:
         row=self.store.db.execute('SELECT report_json FROM pilot_reports WHERE run_id=? AND size=?',(self.run_id,size)).fetchone()
         return json.loads(row[0]) if row else None
 
-    def pilot(self,size):
+    def pilot(self,size,*,exploratory=None):
         if size not in (100,1000,10000):
             raise InvalidConfig('Pilot sizes are exactly 100, 1000, 10000')
         if self.store.run(self.run_id)['production_report']:
             raise InvalidConfig('Production run cannot be relabelled as a pilot')
         previous={1000:100,10000:1000}.get(size)
+        if (size==1000 and self.store.run(self.run_id)['config'].get('discovery',{}).get('version')=='seed-only-2'
+                and exploratory is None):
+            raise InvalidConfig('Seed-only1000 requires scoped offline replay permission even when100 is data_complete')
+        if exploratory is not None:
+            from .exploratory import validate_progression
+            permission=validate_progression(self.store,self.run_id,size,self.report(100),exploratory)
+            self.store.event(self.run_id,'exploratory_progression_permission',permission)
+            return size
         if previous:
             report=self.report(previous)
             if not report or not report['completed'] or not report.get('data_complete',not report.get('source_failure_count',0)):
@@ -163,7 +171,8 @@ class PilotControls:
 
 
 class Builder:
-    def __init__(self,store,run_id,provider,reports='reports/pilots',*,progress=None,max_wait_seconds=0,retry_rounds=0,deferred_only=False,restore_completed=False):
+    def __init__(self,store,run_id,provider,reports='reports/pilots',*,progress=None,max_wait_seconds=0,retry_rounds=0,deferred_only=False,restore_completed=False,exploratory_progression=None):
+        self.exploratory_progression=exploratory_progression
         if not 0<=max_wait_seconds<=3600 or not 0<=retry_rounds<=5:
             raise InvalidConfig('Scheduler wait must be 0..3600 seconds; retry rounds 0..5')
         self.store,self.run_id,self.provider=store,run_id,provider
@@ -497,7 +506,7 @@ class Builder:
         return Path(self.store.db.execute('PRAGMA database_list').fetchone()[2]).parent
 
     def pilot(self,size):
-        self.controls.pilot(size)
+        self.controls.pilot(size,exploratory=self.exploratory_progression)
         paused=self._prepare_host_health(size,'pilot')
         if paused is not None:return paused
         # Each invocation measures only its own work, including warm resume.

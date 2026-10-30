@@ -1,7 +1,17 @@
 .agents/
 .tools/
+.tmp/
+.env
+.env.*
+!.env.example
+api/.env
+api/.env.*
+!api/.env.example
+api/free-tier-evidence.json
+api/account-evidence/
 .venv/
 configs/pipeline.local.json
+configs/groq-review.local.json
 configs/replays/
 .superpowers/
 __pycache__/

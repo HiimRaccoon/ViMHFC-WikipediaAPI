@@ -1,0 +1,10 @@
+{
+  "format": "vimfc-groq-free-tier-evidence-1",
+  "account_plan": "free",
+  "verification_method": "console_review",
+  "organization_scope": "",
+  "verified_by": "",
+  "verified_at": "",
+  "evidence_path": "account-evidence/console.png",
+  "evidence_sha256": ""
+}

@@ -1,0 +1,18 @@
+{
+  "status": "PRESERVED",
+  "unchanged_pinned_files": 10190,
+  "source_tables": 21,
+  "source_rows": 88354,
+  "source_integrity": "ok",
+  "ledger_integrity": "ok",
+  "source_tables_unchanged": true,
+  "ledger_tables_unchanged": true,
+  "result_count": 179,
+  "attempt_count": 188,
+  "new_api_requests": 0,
+  "pending_not_resumed": 121,
+  "real_human_labels_created": 0,
+  "accepted_corpus_promotion": false,
+  "changed_files": [],
+  "scope": "Pre-existing Groq experiment, old 11-case packet, final exports, source raw cache, source DB/WAL/context, integrity registry, source/pipeline code and API ledger. Volatile SHM excluded."
+}

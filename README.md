@@ -2,7 +2,7 @@
 
 Implementation follows [docs/tasks.md](docs/tasks.md) and [the agreed requirements](docs/docs.md).
 
-Opt-in [Discovery experiments and Windows commands](docs/discovery-experiments.md) prepare separate `pipeline-7` legacy/seed-only/hybrid cohorts from checked frozen inventories. They retain qid-5/lead-4/quality-2.1/rank-1; offline reports/preparation never authorize a pilot or Production.
+Forward corpus collection uses **Stratified Seed-only Discovery**: candidate identities now come from [verified official dump metadata](docs/dump-inventory.md), consumed by unchanged [seed-only-2](docs/seed-only.md). It retains qid-5/lead-4/quality-2.1/rank-1, eight sampling quotas and historical evidence guards. [Legacy/Hybrid experiment commands](docs/discovery-experiments.md) remain for historical reproducibility; no further comparison arms are planned. Inventory acquisition never starts a pilot or authorizes Production.
 The current builder defaults use historical Primary-First, Optional-Subtype classification (`qid-5`), `lead-4`, and `quality-2` with explicit revision `quality-2.1` (`pipeline-6.1`). New-rule source validation uses an isolated replay run only when explicitly requested. Existing Pilot 1,000 resume contexts retain their pinned lead-3 rules, durable deferrals, bounded retries and explicit source completeness. See [Windows resume commands](docs/pilot1000-resume.md) for that historical run. Earlier assessments remain historical records. Annotation and UI features in T054+ are not implemented yet; the frontend directory is setup only (T002).
 
 ## Windows development setup
@@ -48,7 +48,7 @@ After the final pilot assessment, stop again for T097's separate production deci
 
 `pipeline freeze --run <id> --output data/corpora` is reserved for authorized production and requires exactly 20,000 eligible selected articles. It publishes a new standalone package and never overwrites one. `corpus verify --corpus <package-directory>` rechecks hashes, source/classification/quality/sentence invariants and every operational graph table. A package from tests is not the research corpus.
 
-The default discovery schedule interleaves category seeds with namespace prefixes; current listings schedule candidates only. Historical identity, sitelink and classification proofs remain mandatory. Unknown factual templates quarantine articles. Quality/comparison signals use explicit archived rules; version changes require a new run.
+The forward `seed-only-2` entry point samples a frozen `dump-inventory-1` of official page/category metadata with deterministic soft quotas. Dump metadata schedules candidates only; historical identity, namespace, sitelink and classification proofs remain mandatory. The API-listing checkpoint and older collectors are retained for historical compatibility without merging dump input into them. Unknown factual templates remain unresolved. Quality/comparison signals use explicit archived rules; version changes require a new run.
 
 ## Data and reproducibility artifacts
 
@@ -59,3 +59,9 @@ Builder state is `data/pipeline.sqlite`, with compressed hash-verified historica
 ## Research boundaries
 
 The [ViMQA paper](https://aclanthology.org/2022.lrec-1.700.pdf) was read for Section 2, Figures 2–3, Table 3 and Section 4.2; the original QA methodology and this project's adaptations remain separate in [research_vimqa.md](docs/research_vimqa.md). Historical raw wikitext, not live template rendering, supplies all retained lead prose and operational links. Wikidata only classifies entities. Scores estimate partner potential and never create claims, labels, hops, or human quality assessments.
+
+## Optional Groq classification experiment
+
+The separate [Windows/local Groq workflow](docs/groq-classification.md) prepares historical inputs, validates text-grounded suggestions and exports human review. It does not change Wikidata-verified labels, article eligibility or the accepted graph; no GPU is required.
+
+The [local Human Review UI](docs/groq-human-review-ui.md) provides blind semantic labeling, durable revision history, historical evidence audit and partitioned RQ1/RQ2/RQ3 evaluation for saved responses. Start it with `python scripts/groq_review.py serve --profile configs/groq-review.local.json`; preparation, review and evaluation require no Groq API calls. The original corpus-annotation frontend roadmap remains separate from this experiment-only interface.
