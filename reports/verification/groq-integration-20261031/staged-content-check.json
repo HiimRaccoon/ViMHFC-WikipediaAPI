@@ -1,0 +1,8 @@
+{
+  "status": "PASS",
+  "staged_files": 20,
+  "staged_bytes": 125655,
+  "credential_pattern_findings": [],
+  "ignored_runtime_paths_excluded": true,
+  "scope": "Selected staged contents and paths; reports no credential values."
+}

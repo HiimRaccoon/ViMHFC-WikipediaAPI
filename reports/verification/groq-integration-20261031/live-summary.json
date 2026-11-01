@@ -1,0 +1,166 @@
+{
+  "counts": {
+    "abstained": 30,
+    "llm_provisional_primary": 48,
+    "out_of_taxonomy": 0,
+    "unresolved": 476,
+    "wikidata_verified_primary": 431
+  },
+  "coverage": {
+    "assisted_assigned": 0.4862944162436548,
+    "assisted_assigned_count": 479,
+    "baseline_assigned": 0.43756345177664974,
+    "baseline_assigned_count": 431,
+    "denominator": 985,
+    "note": "Assigned coverage includes provisional labels; it is not verified coverage or accuracy."
+  },
+  "groups": {
+    "Award / Competition": {
+      "provisional": 2,
+      "provisional_eligible_candidates": 0,
+      "provisional_extraction_pass": 2,
+      "provisional_nonclassification_quality_pass": 0,
+      "verified": 32,
+      "verified_eligible": 19,
+      "verified_extraction_pass": 28,
+      "verified_nonclassification_quality_pass": 19
+    },
+    "Creative Work": {
+      "provisional": 5,
+      "provisional_eligible_candidates": 2,
+      "provisional_extraction_pass": 5,
+      "provisional_nonclassification_quality_pass": 2,
+      "verified": 73,
+      "verified_eligible": 46,
+      "verified_extraction_pass": 57,
+      "verified_nonclassification_quality_pass": 46
+    },
+    "Event": {
+      "provisional": 8,
+      "provisional_eligible_candidates": 4,
+      "provisional_extraction_pass": 8,
+      "provisional_nonclassification_quality_pass": 4,
+      "verified": 10,
+      "verified_eligible": 3,
+      "verified_extraction_pass": 4,
+      "verified_nonclassification_quality_pass": 3
+    },
+    "Landmark / Facility": {
+      "provisional": 7,
+      "provisional_eligible_candidates": 3,
+      "provisional_extraction_pass": 7,
+      "provisional_nonclassification_quality_pass": 3,
+      "verified": 15,
+      "verified_eligible": 6,
+      "verified_extraction_pass": 7,
+      "verified_nonclassification_quality_pass": 6
+    },
+    "Location": {
+      "provisional": 22,
+      "provisional_eligible_candidates": 4,
+      "provisional_extraction_pass": 22,
+      "provisional_nonclassification_quality_pass": 4,
+      "verified": 9,
+      "verified_eligible": 2,
+      "verified_extraction_pass": 3,
+      "verified_nonclassification_quality_pass": 2
+    },
+    "Organization": {
+      "provisional": 4,
+      "provisional_eligible_candidates": 3,
+      "provisional_extraction_pass": 4,
+      "provisional_nonclassification_quality_pass": 3,
+      "verified": 55,
+      "verified_eligible": 26,
+      "verified_extraction_pass": 33,
+      "verified_nonclassification_quality_pass": 26
+    },
+    "Person": {
+      "provisional": 0,
+      "provisional_eligible_candidates": 0,
+      "provisional_extraction_pass": 0,
+      "provisional_nonclassification_quality_pass": 0,
+      "verified": 234,
+      "verified_eligible": 60,
+      "verified_extraction_pass": 149,
+      "verified_nonclassification_quality_pass": 60
+    },
+    "Science / Technology": {
+      "provisional": 0,
+      "provisional_eligible_candidates": 0,
+      "provisional_extraction_pass": 0,
+      "provisional_nonclassification_quality_pass": 0,
+      "verified": 3,
+      "verified_eligible": 0,
+      "verified_extraction_pass": 2,
+      "verified_nonclassification_quality_pass": 0
+    }
+  },
+  "verified_eligible": 162,
+  "provisional_eligible_candidates": 16,
+  "trusted_leads": 531,
+  "legacy_cache_reused": 74,
+  "pending_live_count": 170,
+  "invalid_terminal_outputs": 0,
+  "membership_counts": {
+    "AMBIGUOUS": 1,
+    "INSUFFICIENT_EVIDENCE": 1,
+    "IN_TAXONOMY": 48,
+    "UNSPECIFIED_ABSTENTION": 28
+  },
+  "human_accuracy": "UNASSESSED",
+  "accepted_corpus_promotion": false,
+  "operations": {
+    "actual_invoice_cost_usd": null,
+    "authorization_deadline_unix": 1793431398.1409519,
+    "budget": {
+      "max_attempts": 1,
+      "max_output_tokens": 512,
+      "max_requests": 61,
+      "max_runtime_seconds": 900,
+      "max_total_tokens": 100000,
+      "max_wait_seconds": 60,
+      "model_id": "qwen/qwen3.8-27b",
+      "rpd": 1000,
+      "rpm": 30,
+      "timeout_seconds": 30,
+      "tpd": 200000,
+      "tpm": 8000,
+      "version": "wikidata-first-groq-provisional-1"
+    },
+    "cached_new_schema_at_start": 0,
+    "elapsed_seconds": 11.913899421691895,
+    "error_type": null,
+    "estimated_free_plan_spend_usd": 0,
+    "free_tier_user_confirmed": true,
+    "invocation_id": "a858549ee4bf4954963c57971711fe8d",
+    "list_price_is_not_actual_charge": true,
+    "new_attempts_this_invocation": 6,
+    "original_ledger_unchanged": true,
+    "paid_list_price_equivalent_usd": 0.0061864,
+    "pricing_source": "https://console.groq.com/docs/models",
+    "provider_usage": {
+      "completion_tokens": 633,
+      "prompt_tokens": 4568,
+      "total_tokens": 5201,
+      "unknown_usage_responses": 0
+    },
+    "retry_at_unix": null,
+    "saved_http_responses_recovered_without_post": 0,
+    "scope_cumulative": {
+      "charged_tokens": 7547,
+      "error_attempts": 1,
+      "physical_attempts": 6,
+      "reserved_tokens": 9870,
+      "scope_id": "bad3c83c9025f53c88998c497495817b20cd6583ace3bb52638c08664c72d420",
+      "successful_http": 5,
+      "uncertain_attempts": 0
+    },
+    "shared_rate_ledger": "C:\\ViFC_MultiHop_Data\\data\\experiments\\groq-integration-rate-1\\ledger.sqlite",
+    "status": "rate_limited"
+  },
+  "source_live_report": "data\\experiments\\groq-integration-20261031\\live\\reports\\a858549ee4bf4954963c57971711fe8d\\metrics.json",
+  "execution_date": "2026-10-31",
+  "publication_date": "2026-11-01",
+  "requests_during_publication": 0
+}
