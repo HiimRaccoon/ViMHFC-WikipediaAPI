@@ -1,5 +1,11 @@
 # Implementation Tasks: Vietnamese Multi-hop Fact-Checking
 
+## Article collection addendum (2026-11-15)
+
+- [x] Add opt-in `annotation-edge-1` and `rank-annotation-1` policy adapters; keep `quality-relaxed-1`, snapshot, old policies and source integrity unchanged.
+- [x] Distinguish candidate, verified, blocked and unresolved Lead links; rank candidate internal edges below verified ones, with selected-set paths and singleton fallback.
+- [ ] Run a separately authorized frozen-cohort Pilot and then assess full-inventory scaling before production collection/freeze. No Pilot or replay is authorized by this addendum.
+
 **Inputs:** [specs.md](specs.md), [plans.md](plans.md), [data-model.md](data-model.md), [contracts/interfaces.md](contracts/interfaces.md), [research.md](research.md), [research_vimqa.md](research_vimqa.md), [quickstart.md](quickstart.md).
 
 **Status (2026-10-25):** T001–T048 implemented and verified with 81 passing offline backend tests. Authorized T049 pilot 100 is now complete and its source/artifact checks pass: 5 eligible, 65 unresolved extraction, 66 pending classification (overlapping outcomes). See [pilot 100 assessment](../reports/pilots/b0243673-5f0b-4ac6-b8b3-0ca7aa74ccc6/100/summary.md). Pilot 1,000 is not recommended until the identified issues are addressed; T050 onward and production remain unapproved. Snapshot: `2026-10-25T03:00:00Z` (10:00 Asia/Saigon).

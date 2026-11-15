@@ -42,6 +42,15 @@ def select_connected(candidates, pairs, rules, quotas, target=20000):
     """
     articles = {a['page_id']: a for a in candidates if a['quality']['eligible']}
     out, inc, _, _ = graph_adjacency(articles.values())
+    annotation = rules.get('version') == 'rank-annotation-1'
+    weights = {}
+    if annotation:
+        for p, article in articles.items():
+            for link in article['extraction']['links']:
+                q = link.get('target', {}).get('page_id')
+                if q in out[p]:
+                    weights[p, q] = max(weights.get((p, q), 0),
+                                        2 if link.get('edge_status') == 'VERIFIED_EDGE' else 1)
     neighbors = {p: out[p] | inc[p] for p in articles}
     degree = {p: len(neighbors[p]) for p in articles}
     options = _options(rules)
@@ -110,7 +119,8 @@ def select_connected(candidates, pairs, rules, quotas, target=20000):
                  ([(p, q) for q in out[p] & after] + [(q, p) for q in inc[p] & after])}
         features['internal_edges'] = len(edges)
         features['normalized_edges'] = sum(
-            1000 * 2 // max(2, degree[a] + degree[b]) for a, b in edges)
+            (1000 * 2 // max(2, degree[a] + degree[b])) *
+            (weights.get((a, b), 1) if annotation else 1) for a, b in edges)
         affected = set(new)
         for p in new:
             affected.update(neighbors[p])
@@ -118,13 +128,18 @@ def select_connected(candidates, pairs, rules, quotas, target=20000):
             was = p in selected and bool(neighbors[p] & selected)
             now = p in after and bool(neighbors[p] & after)
             features['nonisolated_vertices'] += int(now) - int(was)
-            def paths(pool):
+            def paths(pool, weighted=False):
                 if p not in pool:
                     return 0
                 incoming, outgoing = inc[p] & pool, out[p] & pool
-                return len(incoming) * len(outgoing) - len(incoming & outgoing)
-            delta = paths(after) - paths(selected)
-            features['two_hop_paths'] += delta
+                base = len(incoming) * len(outgoing) - len(incoming & outgoing)
+                if not weighted:
+                    return base
+                verified_in = {q for q in incoming if weights.get((q, p)) == 2}
+                verified_out = {q for q in outgoing if weights.get((p, q)) == 2}
+                return base + len(verified_in) * len(verified_out) - len(verified_in & verified_out)
+            features['two_hop_paths'] += paths(after) - paths(selected)
+            delta = paths(after, annotation) - paths(selected, annotation)
             features['normalized_paths'] += delta * 1000 * 4 // max(4, degree[p] ** 2)
         retained_pairs = {tuple(sorted((p, q))) for p in new for q in pair_utility[p] if q in after}
         features['pair'] = sum(pair_utility[a][b] for a, b in retained_pairs)
@@ -168,7 +183,8 @@ def select_connected(candidates, pairs, rules, quotas, target=20000):
         ordered.extend(new)
         steps.append({'step': len(steps), 'added_page_ids': list(new),
                       'gain_numerator': score.numerator, 'gain_denominator': score.denominator,
-                      'features': features, 'selected_count': len(selected), 'ranking_version': VERSION})
+                      'features': features, 'selected_count': len(selected),
+                      'ranking_version': rules.get('version', VERSION) if annotation else VERSION})
         affected = set(new)
         for p in new:
             groups[articles[p]['classification'].get('primary_entity_type')] += 1

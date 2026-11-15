@@ -6,6 +6,10 @@ from vimfc.domain import CORPUS_SIZE, SelectionManifest
 
 
 def select_corpus(candidates, pairs, rules, quotas, target=CORPUS_SIZE):
+    if rules.get('version') == 'rank-annotation-1':
+        from .annotation_edges import rankable_links
+        from .connectivity_rank import select_connected
+        return select_connected(rankable_links(candidates), pairs, rules, quotas, target)
     if rules.get('version') == 'rank-connectivity-1':
         from .connectivity_rank import select_connected
         return select_connected(candidates, pairs, rules, quotas, target)

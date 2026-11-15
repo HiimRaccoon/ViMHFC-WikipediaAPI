@@ -8,6 +8,12 @@
 
 This specification defines observable behavior and acceptance criteria for constructing a fixed evidence corpus and authoring a Vietnamese multi-hop fact-checking benchmark. It does not claim that the corpus, benchmark, or application already exists. Implementation design belongs in the subsequent plan.
 
+## Article collection policy addendum (2026-11-15)
+
+For the new `annotation-edge-1` / `rank-annotation-1` collection path, select up to 20,000 articles at the fixed `2026-10-25T03:00:00Z` snapshot using `quality-relaxed-1`, historical Full Lead prose and eight soft quotas. One factual sentence suffices; classification is metadata, including when unresolved. Collection does not validate claims or required hops.
+
+A checked historical Lead link is `VERIFIED_EDGE` only with independently certified historical ownership. A link whose source revision, target revision and redirect chain are checked but whose title ownership remains unproven is `CANDIDATE_EDGE`. Integrity contradiction, wrong namespace or snapshot is `BLOCKED_EDGE`; a title without a trusted page ID is `UNRESOLVED`. Candidate edges can guide article discovery and ranking, with lower weight than verified edges, but never count as verified evidence. Report all four states separately. Prefer internal selected edges and distinct three-article paths without requiring every selected article to have a link. The older frozen policies and packages remain unchanged; production freeze still requires separate authorization and validation.
+
 ## User Scenarios & Testing
 
 ### User Story 1 - Build and Freeze a Reproducible Evidence Corpus (Priority: P1)

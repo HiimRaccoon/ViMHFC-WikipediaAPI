@@ -1,5 +1,9 @@
 # Vietnamese Multi-hop Fact-Checking Implementation Plan
 
+## Collection addendum (2026-11-15)
+
+`pipeline/annotation_edges.py` is the new opt-in adapter after checked historical article intake. It labels checked Lead links separately from strict V2 ownership certification; unknown title-only links remain unresolved. `select_corpus` dispatches `rank-annotation-1` to the existing deterministic connectivity selector, using candidate edges at weight 1 and verified edges at weight 2. The selector retains factual-quality singleton fallback, diversity and eight soft quotas. The adapter accepts the whole checked candidate pool, not a fixed Pilot graph; upstream source checkpoints and manifests remain the resume boundary. Its result records the edge and ranking policy versions and separate state counts. A future authorized run must persist these inputs and result under a new run identity before any corpus freeze. Existing V1/V2 results and strict verified graph metrics are not reinterpreted.
+
 > **For implementers:** Read [specs.md](specs.md) and [docs.md](docs.md) first. Use the `executing-plans` workflow for inline implementation; do not begin implementation as part of writing this plan. Milestone checkboxes below are planning handoff items; detailed dependency-ordered work will be generated separately in `tasks.md`.
 
 **Goal:** Build a reproducible 20,000-article fixed Vietnamese Wikipedia lead corpus and a Windows-local application for human-authored fact-checking samples.
