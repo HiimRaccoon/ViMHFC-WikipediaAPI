@@ -1,0 +1,105 @@
+{
+  "cached_closure_completion": false,
+  "dependency_policy": {
+    "max_depth": 12,
+    "max_nodes": 2048,
+    "version": "primary-first-1"
+  },
+  "max_cached_nodes": 2048,
+  "max_depth": 12,
+  "precedence": [
+    "Landmark / Facility",
+    "Award / Competition",
+    "Organization",
+    "Location",
+    "Creative Work",
+    "Person",
+    "Science / Technology",
+    "Event"
+  ],
+  "roots": {
+    "Q11016": {
+      "group": "Science / Technology",
+      "name": "Technology",
+      "subtype": true
+    },
+    "Q11424": {
+      "group": "Creative Work",
+      "name": "Film",
+      "subtype": true
+    },
+    "Q13406554": {
+      "group": "Award / Competition",
+      "name": "Sports competition",
+      "subtype": true
+    },
+    "Q1656682": {
+      "group": "Event",
+      "name": "Event",
+      "subtype": false
+    },
+    "Q17537576": {
+      "group": "Creative Work",
+      "name": "Creative work",
+      "subtype": false
+    },
+    "Q33999": {
+      "group": "Person",
+      "name": "Actor",
+      "subtype": true
+    },
+    "Q3918": {
+      "group": "Organization",
+      "name": "University",
+      "subtype": true
+    },
+    "Q41176": {
+      "group": "Landmark / Facility",
+      "name": "Building",
+      "subtype": true
+    },
+    "Q43229": {
+      "group": "Organization",
+      "name": "Organization",
+      "subtype": false
+    },
+    "Q483110": {
+      "group": "Landmark / Facility",
+      "name": "Stadium",
+      "subtype": true
+    },
+    "Q5": {
+      "group": "Person",
+      "name": "Human",
+      "subtype": false
+    },
+    "Q515": {
+      "group": "Location",
+      "name": "City",
+      "subtype": true
+    },
+    "Q618779": {
+      "group": "Award / Competition",
+      "name": "Award",
+      "subtype": true
+    },
+    "Q6256": {
+      "group": "Location",
+      "name": "Country",
+      "subtype": true
+    },
+    "Q901": {
+      "group": "Person",
+      "name": "Scientist",
+      "subtype": true
+    },
+    "Q937857": {
+      "group": "Person",
+      "name": "Footballer",
+      "subtype": true
+    }
+  },
+  "stop_at_configured_roots": true,
+  "terminal_unresolved": true,
+  "version": "qid-5"
+}

@@ -1,0 +1,48 @@
+{
+  "bridge_cap": 20,
+  "bridge_weights": {
+    "complementary_information": 3,
+    "endpoint_quality": 2,
+    "redundancy": -2,
+    "relation_signal": 3,
+    "shortcut_risk": -3
+  },
+  "comparison_cap": 20,
+  "comparison_weights": {
+    "attribute_compatibility": 3,
+    "endpoint_quality": 2,
+    "redundancy": -2,
+    "shortcut_risk": -3,
+    "subtype_match": 3
+  },
+  "graph_scoring": {
+    "chain_bonus": 160,
+    "degree_cap": 20,
+    "edge_base": 640,
+    "hub_edge_normalization": "min(20,degree)/degree",
+    "quality_divisor": 5
+  },
+  "selection_version": "hyperlink-greedy-1",
+  "selection_weights": {
+    "connectivity": 6,
+    "deficit": 1,
+    "hub": 5,
+    "novelty": 1,
+    "overrepresentation": 2,
+    "pair": 8,
+    "quality": 1
+  },
+  "stopwords": [
+    "là",
+    "và",
+    "của",
+    "một",
+    "các",
+    "những",
+    "được",
+    "ở",
+    "tại",
+    "trong"
+  ],
+  "version": "rank-hyperlink-1"
+}

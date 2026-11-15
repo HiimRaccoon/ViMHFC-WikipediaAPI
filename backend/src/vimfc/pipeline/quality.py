@@ -3,6 +3,9 @@ import re
 
 
 def assess_quality(extraction, classification, kinds, rules):
+    if rules.get('quality_version') == 'quality-relaxed-1':
+        from .relaxed_quality import assess_relaxed
+        return assess_relaxed(extraction, classification, kinds, rules)
     extraction=asdict(extraction) if is_dataclass(extraction) else extraction
     classification=asdict(classification) if is_dataclass(classification) else classification
     reasons=[]

@@ -1,0 +1,102 @@
+{
+  "checkpoint_seconds": 10,
+  "classification_file": "classification_rules.json",
+  "contact": "",
+  "corpus_size": 20000,
+  "extension_size": 10000,
+  "extraction_file": "extraction_rules.json",
+  "host_concurrency": 1,
+  "initial_target": 80000,
+  "known_revision_batch": 20,
+  "local_workers": 2,
+  "max_attempts": 5,
+  "maxlag": 5,
+  "namespace_prefixes": [
+    "A",
+    "B",
+    "C",
+    "D",
+    "Đ",
+    "E",
+    "G",
+    "H",
+    "I",
+    "K",
+    "L",
+    "M",
+    "N",
+    "O",
+    "P",
+    "Q",
+    "R",
+    "S",
+    "T",
+    "U",
+    "V",
+    "X",
+    "Y"
+  ],
+  "quotas": {
+    "Award / Competition": 1500,
+    "Creative Work": 2500,
+    "Event": 2500,
+    "Landmark / Facility": 1500,
+    "Location": 3000,
+    "Organization": 3000,
+    "Person": 5000,
+    "Science / Technology": 1000
+  },
+  "ranking_file": "ranking_rules.json",
+  "sample_interval_seconds": 1,
+  "seed": "vimfc-1",
+  "streams": [
+    {
+      "id": "people",
+      "kind": "categorymembers",
+      "title": "Thể loại:Nhân vật còn sống"
+    },
+    {
+      "id": "organizations",
+      "kind": "categorymembers",
+      "title": "Thể loại:Tổ chức"
+    },
+    {
+      "id": "locations",
+      "kind": "categorymembers",
+      "title": "Thể loại:Thành phố"
+    },
+    {
+      "id": "events",
+      "kind": "categorymembers",
+      "title": "Thể loại:Sự kiện"
+    },
+    {
+      "id": "works",
+      "kind": "categorymembers",
+      "title": "Thể loại:Phim"
+    },
+    {
+      "id": "awards",
+      "kind": "categorymembers",
+      "title": "Thể loại:Giải thưởng"
+    },
+    {
+      "id": "facilities",
+      "kind": "categorymembers",
+      "title": "Thể loại:Công trình xây dựng"
+    },
+    {
+      "id": "science",
+      "kind": "categorymembers",
+      "title": "Thể loại:Khoa học và công nghệ"
+    },
+    {
+      "id": "namespace",
+      "kind": "allpages",
+      "prefix": ""
+    }
+  ],
+  "transaction_batch": 100,
+  "user_agent": "",
+  "version": "pipeline-relaxed-1"
+}

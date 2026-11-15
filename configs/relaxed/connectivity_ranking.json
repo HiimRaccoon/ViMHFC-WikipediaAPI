@@ -1,0 +1,7 @@
+{
+  "version": "rank-connectivity-1",
+  "bridge_cap": 20,
+  "connectivity": true,
+  "hub_normalization": true,
+  "diversity": true
+}

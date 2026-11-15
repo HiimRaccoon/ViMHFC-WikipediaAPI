@@ -46,6 +46,18 @@ class RevisionSource:
             (site,str(identity),snapshot,operation,canonical(value),error.retry_at,int(error.retryable),now()))
 
     @guarded_validation
+    def select_title_revision(self, site, title, snapshot):
+        """Opt-in title lookup, including numeric titles, with disjoint cache keys."""
+        from .explicit_revisions import select_explicit
+        return select_explicit(self, site, 'title', title, snapshot)
+
+    @guarded_validation
+    def select_page_revision(self, site, page_id, snapshot):
+        """Opt-in page-ID lookup; never consumes ambiguous legacy numeric refs."""
+        from .explicit_revisions import select_explicit
+        return select_explicit(self, site, 'page_id', page_id, snapshot)
+
+    @guarded_validation
     def select_revision(self, site, identity, snapshot):
         snapshot, identity = utc(snapshot), str(identity)
         self.cache_lookups += 1

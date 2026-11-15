@@ -6,6 +6,12 @@ from vimfc.domain import CORPUS_SIZE, SelectionManifest
 
 
 def select_corpus(candidates, pairs, rules, quotas, target=CORPUS_SIZE):
+    if rules.get('version') == 'rank-connectivity-1':
+        from .connectivity_rank import select_connected
+        return select_connected(candidates, pairs, rules, quotas, target)
+    if rules.get('version') == 'rank-hyperlink-1':
+        from .hyperlink_rank import select_hyperlink
+        return select_hyperlink(candidates, pairs, rules, quotas, target)
     articles={a['page_id']:a for a in candidates if a['quality']['eligible']}
     adjacency=defaultdict(dict)
     links=defaultdict(set)
