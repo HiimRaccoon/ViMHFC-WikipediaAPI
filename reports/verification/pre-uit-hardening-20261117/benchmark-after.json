@@ -1,0 +1,68 @@
+[
+  {
+    "size": 1000,
+    "shape": "blocks",
+    "fixture_seconds": 0.02832920000219019,
+    "whole_pool": {
+      "seconds": 0.3646364000014728,
+      "selected": 1000,
+      "selection_digest": "2246c4366f378d15d00e1f6bbcc937c24be9d4ae34064e71610a5f9e25ca560b"
+    },
+    "half_pool": {
+      "seconds": 0.22006850000616396,
+      "selected": 500,
+      "selection_digest": "bae3b2165394c365144c2b2071073dc85a6f4d0bd35ae4d5f1477a619a553428"
+    },
+    "graph": {
+      "seconds": 0.0018550000022514723,
+      "vertices": 1000,
+      "directed_nonself_edges": 1748,
+      "potential_two_hop_paths": 2992
+    },
+    "peak_rss_bytes_sampled": 41684992
+  },
+  {
+    "size": 5000,
+    "shape": "blocks",
+    "fixture_seconds": 0.15929549999418668,
+    "whole_pool": {
+      "seconds": 1.9642915000003995,
+      "selected": 5000,
+      "selection_digest": "9b150267def218dc37601f7d6f262f46e8e884954f02630d15368d61abac4f02"
+    },
+    "half_pool": {
+      "seconds": 1.1642022999949404,
+      "selected": 2500,
+      "selection_digest": "7e4fc1281d67e800a4424bb9b20775c2e24948ded2a9fdf5b1e15a65be7c9d59"
+    },
+    "graph": {
+      "seconds": 0.016272699998808093,
+      "vertices": 5000,
+      "directed_nonself_edges": 8749,
+      "potential_two_hop_paths": 14996
+    },
+    "peak_rss_bytes_sampled": 102395904
+  },
+  {
+    "size": 10000,
+    "shape": "blocks",
+    "fixture_seconds": 0.29981270000280347,
+    "whole_pool": {
+      "seconds": 4.351335700004711,
+      "selected": 10000,
+      "selection_digest": "1a29911f190acc3e6d1d18c2eec68ec9967e1a7ff4ee2aed3e20dbfcf9c8c1ee"
+    },
+    "half_pool": {
+      "seconds": 2.739739799995732,
+      "selected": 5000,
+      "selection_digest": "af3beb4be6d68c6deecf5b7fc3e4d44c0899473a9a437e15abea21c94531e96f"
+    },
+    "graph": {
+      "seconds": 0.049513599995407276,
+      "vertices": 10000,
+      "directed_nonself_edges": 17498,
+      "potential_two_hop_paths": 29992
+    },
+    "peak_rss_bytes_sampled": 175742976
+  }
+]

@@ -2,6 +2,8 @@
 
 No deployment or execution is authorized by this document. Review the handoff first. All commands below are future operator steps after explicit permission. The active collection policies here are `quality-relaxed-1`, `annotation-edge-1`, `rank-annotation-1` at `2026-10-25T03:00:00Z`; the earlier WikiGraph experiment is a separate path and is not used by this worker.
 
+Current review: [Pre-UIT hardening handoff](../reports/verification/pre-uit-hardening-20261117.md). Hardening changes supersede commit `3c6aefa` for stop dispositions, progress, publication locking and Slurm safeguards. Server execution still requires separate approval.
+
 ## Reuse and data flow
 
 `inventory → pinned historical revision → checked raw → historical Lead → quality-relaxed-1 → V2 candidate-edge connectivity selection`.
@@ -84,9 +86,13 @@ VIMFC_OFFLINE=1 "$PYTHON" -B scripts/collection-readiness.py batch \
   --mode process --through 10000 --batch-size 250
 ```
 
-Alternate batches and inspect receipts/yield. Do not acquire all 60k–100k Leads at once. `collection_invocations` records elapsed time, durable request count, eligible supply, acquired/processed/missing counts, remaining prefix and blocker. `selection.json` is published atomically after successful CLI processing, and contains four edge-state metrics, selected graph components and distinct two-hop paths. A crash before export can regenerate selection from committed records without new source requests. `pilot_accepted` remains false; no corpus freeze occurs.
+Alternate batches and inspect receipts/yield. Do not acquire all 60k–100k Leads at once. `collection_invocations` and `last-invocation.json` distinguish completed, missing/unsupported, needs-review, retryable, budget, interruption, operational and integrity-fatal outcomes. Progress reports `remaining_to_acquire` (unseen + retryable), `remaining_to_process` (acquired raw), committed `eligible_supply`, `missing`, `unsupported` and review `blockers`. `remaining_in_prefix` includes both backlogs and review blockers. A missing/unsupported source is not a quality rejection. Unknown nonretryable source failures are withheld for review; identity/hash/cutoff contradictions remain fatal. Old fatal flags are not automatically cleared.
 
-Use `configs/slurm/annotation-pilot10000.sbatch` only after review. Supply UIT account/partition and actual paths outside the template. It requests one CPU node, four CPUs, 16 GiB RAM and four hours, with an early TERM signal forwarded to Python. It runs exactly one bounded batch, defaults to offline processing and never submits/requeues another job. Acquisition mode additionally requires explicit egress confirmation. The output log directory must exist before submission; `#SBATCH` directives do not expand shell variables, and Slurm does not transfer application files. [Official sbatch documentation](https://slurm.schedmd.com/sbatch.html).
+The worker publishes `selection.json` atomically under its writer lock, before its receipt. It contains the existing four edge states and selected graph metrics. Failed replace preserves the old export and reports `selection_published=false`; pending files are not promoted. An explicit later offline invocation can regenerate export from committed records. `pilot_accepted` remains false; no corpus freeze occurs.
+
+Exit codes: 0 completed; 2 review required; 5 request budget reached; 75 retryable source or operational/storage stop; 130 interrupted; 3 integrity/preflight failure. Read `status`, `expected_stop`, `budget_scope`, `stop_reason.retry_at`, `blockers` and `receipt_errors`. Unavailable DB progress is null rather than zero. Receipts are best effort if storage itself is unavailable; the CLI preserves the original error/receipt. A preflight failure is emitted to stderr and does not update a stale stored receipt. Request counters are conservative pre-send charges, including uncertain in-flight attempts after a hard kill.
+
+Use `configs/slurm/annotation-pilot10000.sbatch` only after review. Supply UIT account/partition and actual paths outside the template. It requests one CPU node, four CPUs, 16 GiB RAM and four hours, with early TERM forwarded to Python. It runs exactly one bounded batch, defaults to offline processing, requests `--no-requeue` and rejects nonzero `SLURM_RESTART_COUNT`. Acquisition mode requires explicit egress confirmation. Default logs are `slurm-%x-%j.out/.err` in Slurm's submission/`--chdir` directory. For custom paths, create their parent before submission. Directives do not expand shell variables; Slurm does not transfer application files. [Official sbatch documentation](https://slurm.schedmd.com/sbatch.html).
 
 ## Compute nodes without Internet and checkpoint transport
 

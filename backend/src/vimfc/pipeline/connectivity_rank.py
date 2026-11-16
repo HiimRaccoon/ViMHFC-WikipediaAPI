@@ -105,43 +105,48 @@ def select_connected(candidates, pairs, rules, quotas, target=20000):
             by_article[p].add(bundle)
     selected, ordered, steps = set(), [], []
     groups, subtypes = Counter(), Counter()
+    selected_in, selected_out, selected_both = Counter(), Counter(), Counter()
+    verified_in, verified_out, verified_both = Counter(), Counter(), Counter()
+    reciprocal = {p: inc[p] & out[p] for p in articles}
 
     def gain(bundle):
         new = tuple(p for p in bundle if p not in selected)
         if not new or len(new) > target - len(selected):
             return None
-        after = selected | set(new)
+        new_set = set(new)
         features = {'quality': sum(articles[p]['quality']['score'] for p in new),
                     'internal_edges': 0, 'nonisolated_vertices': 0, 'two_hop_paths': 0,
                     'normalized_edges': 0, 'normalized_paths': 0,
                     'pair': 0, 'deficit': 0, 'novelty': 0}
         edges = {(a, b) for p in new for a, b in
-                 ([(p, q) for q in out[p] & after] + [(q, p) for q in inc[p] & after])}
+                 ([(p, q) for q in (out[p] & selected) | (out[p] & new_set)]
+                  + [(q, p) for q in (inc[p] & selected) | (inc[p] & new_set)])}
         features['internal_edges'] = len(edges)
         features['normalized_edges'] = sum(
             (1000 * 2 // max(2, degree[a] + degree[b])) *
             (weights.get((a, b), 1) if annotation else 1) for a, b in edges)
         affected = set(new)
         for p in new:
-            affected.update(neighbors[p])
+            affected.update(neighbors[p] & selected)
         for p in affected:
-            was = p in selected and bool(neighbors[p] & selected)
-            now = p in after and bool(neighbors[p] & after)
+            added_in = inc[p] & new_set
+            added_out = out[p] & new_set
+            incoming, outgoing = selected_in[p] + len(added_in), selected_out[p] + len(added_out)
+            was = p in selected and bool(selected_in[p] or selected_out[p])
+            now = bool(incoming or outgoing)
             features['nonisolated_vertices'] += int(now) - int(was)
-            def paths(pool, weighted=False):
-                if p not in pool:
-                    return 0
-                incoming, outgoing = inc[p] & pool, out[p] & pool
-                base = len(incoming) * len(outgoing) - len(incoming & outgoing)
-                if not weighted:
-                    return base
-                verified_in = {q for q in incoming if weights.get((q, p)) == 2}
-                verified_out = {q for q in outgoing if weights.get((p, q)) == 2}
-                return base + len(verified_in) * len(verified_out) - len(verified_in & verified_out)
-            features['two_hop_paths'] += paths(after) - paths(selected)
-            delta = paths(after, annotation) - paths(selected, annotation)
+            before = selected_in[p] * selected_out[p] - selected_both[p] if p in selected else 0
+            after = incoming * outgoing - selected_both[p] - len(added_in & added_out)
+            delta = after - before
+            features['two_hop_paths'] += delta
+            if annotation:
+                add_vi = {q for q in added_in if weights.get((q, p)) == 2}
+                add_vo = {q for q in added_out if weights.get((p, q)) == 2}
+                old_verified = verified_in[p] * verified_out[p] - verified_both[p] if p in selected else 0
+                new_verified = (verified_in[p] + len(add_vi)) * (verified_out[p] + len(add_vo)) - verified_both[p] - len(add_vi & add_vo)
+                delta += new_verified - old_verified
             features['normalized_paths'] += delta * 1000 * 4 // max(4, degree[p] ** 2)
-        retained_pairs = {tuple(sorted((p, q))) for p in new for q in pair_utility[p] if q in after}
+        retained_pairs = {tuple(sorted((p, q))) for p in new for q in pair_utility[p] if q in selected or q in new_set}
         features['pair'] = sum(pair_utility[a][b] for a, b in retained_pairs)
         local_groups, local_types = groups.copy(), subtypes.copy()
         for p in new:
@@ -163,15 +168,19 @@ def select_connected(candidates, pairs, rules, quotas, target=20000):
             score += features['deficit'] + features['novelty'] // 2
         return Fraction(score, len(new)), Fraction(sum(_specific(articles[p]) for p in new), len(new)), new, features
 
-    heap = []
+    heap = []; queued = set()
     def queue(bundle):
         value = gain(bundle)
         if value is not None:
-            heapq.heappush(heap, (-value[0], -value[1], bundle))
+            item = (-value[0], -value[1], bundle)
+            if item not in queued:
+                queued.add(item)
+                heapq.heappush(heap, item)
     for bundle in sorted(bundles):
         queue(bundle)
     while heap and len(selected) < target:
         old_score, old_specific, bundle = heapq.heappop(heap)
+        queued.remove((old_score, old_specific, bundle))
         value = gain(bundle)
         if value is None:
             continue
@@ -180,6 +189,17 @@ def select_connected(candidates, pairs, rules, quotas, target=20000):
             queue(bundle)
             continue
         selected.update(new)
+        # Exact neighborhood totals avoid copying the selected set for every gain.
+        for p in new:
+            for q in out[p]:
+                selected_in[q] += 1
+                verified_in[q] += weights.get((p, q)) == 2
+            for q in inc[p]:
+                selected_out[q] += 1
+                verified_out[q] += weights.get((q, p)) == 2
+            for q in reciprocal[p]:
+                selected_both[q] += 1
+                verified_both[q] += weights.get((p, q)) == weights.get((q, p)) == 2
         ordered.extend(new)
         steps.append({'step': len(steps), 'added_page_ids': list(new),
                       'gain_numerator': score.numerator, 'gain_denominator': score.denominator,

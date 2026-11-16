@@ -62,11 +62,14 @@ class HistoricalProvider:
     def host_guard(self):
         return self.host_health.snapshot() if self.host_health else {}
 
-    def _raw(self,candidate):
+    def _acquire_raw(self,candidate):
         identity=candidate['page_id']
         self.client.stage='historical_acquisition'
         acquired=self.executor.execute('acquire',identity,{'snapshot':self.run['snapshot'],'page_id':identity},lambda:asdict(self.identities.raw_page(identity)))
-        raw=RawRevision(**{**acquired,'ref':SourceRevisionRef(**acquired['ref'])})
+        return RawRevision(**{**acquired,'ref':SourceRevisionRef(**acquired['ref'])})
+
+    def _raw(self,candidate):
+        raw=self._acquire_raw(candidate)
         if raw.content_model!='wikitext':
             raise SourceUnavailable('Candidate is not historical wikitext')
         if self.config.get('discovery'):
@@ -92,10 +95,13 @@ class HistoricalProvider:
             pages=payload.get('query',{}).get('pages',[])
             if len(pages)!=1:raise Incompatible('Exact-revision namespace response is ambiguous')
             page=pages[0];revisions=page.get('revisions',[])
-            if (page.get('pageid')!=raw.ref.page_id or len(revisions)!=1 or revisions[0].get('revid')!=raw.ref.revision_id
+            if (type(page.get('pageid')) is not int or page.get('pageid')!=raw.ref.page_id
+                or len(revisions)!=1 or type(revisions[0].get('revid')) is not int or revisions[0].get('revid')!=raw.ref.revision_id
                 or revisions[0].get('timestamp')!=raw.ref.revision_timestamp):raise Incompatible('Exact-revision namespace identity mismatch')
             if page.get('title')!=raw.ref.title:
                 raise SourceUnavailable('Current title differs from pinned historical title; namespace review required',code='namespace_review_required')
+            if type(page.get('ns')) is not int:
+                raise SourceUnavailable('Exact-revision namespace value needs review',code='namespace_review_required')
             if page.get('ns')!=0:
                 raise SourceUnavailable('Candidate canonical page is not main namespace',code='article_namespace_excluded')
             return {'namespace':0,'article':article,'basis':'selected_revision_identity_and_unchanged_canonical_title',

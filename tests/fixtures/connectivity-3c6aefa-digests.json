@@ -1,0 +1,125 @@
+{
+  "baseline_commit": "3c6aefa",
+  "cases": [
+    {
+      "seed": 0,
+      "manifest_digest": "58d28daf4882183c52a90dc810522b564c8fe2fc6831ef4503f032d0627bc653"
+    },
+    {
+      "seed": 1,
+      "manifest_digest": "35c98a110eaf9f278270053e98758c4bd9102db520fa2ac89f333e26624aada2"
+    },
+    {
+      "seed": 2,
+      "manifest_digest": "578208a2faca694d127f8d916c8634863e29dc66af3d3df2d39b17aaf89a681f"
+    },
+    {
+      "seed": 3,
+      "manifest_digest": "312d5b76db64aa6158a26bd8adc804abdf2948436c15289bd77a4a925513cf90"
+    },
+    {
+      "seed": 4,
+      "manifest_digest": "13e75cd248c5dbeb24e0b73b74d8b5e1f3b18a02d884fc5f9c43e7615db5d710"
+    },
+    {
+      "seed": 5,
+      "manifest_digest": "0a31030ffc26062b37822aa11ff0285f366ae72c61ce8c5c1974823b4a8e8944"
+    },
+    {
+      "seed": 6,
+      "manifest_digest": "a4306381044ae954a50e0b61faf8a9e7841ee50b2ee8eeac162eb5e0635104d4"
+    },
+    {
+      "seed": 7,
+      "manifest_digest": "20b6db4fa35ea14cc10c70adc41318c74cca0a1ab34ffce042b3646e493fe690"
+    },
+    {
+      "seed": 8,
+      "manifest_digest": "69053eff15578315e45103bd77847d0ddb87a0dcca3546de0332ec5a58901c46"
+    },
+    {
+      "seed": 9,
+      "manifest_digest": "b2c4390f16181bd18b174dbbc2963808ee4a713aeae6842582ee2b5d7f82dc59"
+    },
+    {
+      "seed": 10,
+      "manifest_digest": "34a9a7743730f778677ab7cc62a690e63aa60af9fb3dbe191d97fc0b9d0d9a41"
+    },
+    {
+      "seed": 11,
+      "manifest_digest": "e6eee9d9a8437acdb9775d4c7926c67b02ffd418a8ffd1b8a28dc763d9e55029"
+    },
+    {
+      "seed": 12,
+      "manifest_digest": "d7210cee68a84e5990c94f9ab1913a2f4604c91171d19dc97a275d9b13001c6f"
+    },
+    {
+      "seed": 13,
+      "manifest_digest": "fd4464af2cccb0b187fd8e29b01e02a9bd7683e21d124e25c4092e253a1259c0"
+    },
+    {
+      "seed": 14,
+      "manifest_digest": "6317b24da6b2cc019aa2f7369aa0c24ff22b406fc133bac0c77cc8f41472187a"
+    },
+    {
+      "seed": 15,
+      "manifest_digest": "8366e483337a6c8baf8e00db83386ccdd71e91bf497de90cfcd061a338755c91"
+    },
+    {
+      "seed": 16,
+      "manifest_digest": "a61ce280edc102ff512ebbb0cad5cd52c082e73e875ad06b402d5e109eb21225"
+    },
+    {
+      "seed": 17,
+      "manifest_digest": "dd02f26228062d74c9aa82212a3e3f969558cb3be8fe927cb8a79b0d9cf0b1d3"
+    },
+    {
+      "seed": 18,
+      "manifest_digest": "8694378295efdb0556f2eaa499330e0b8b30f670f82ce7aea948473708ecdc56"
+    },
+    {
+      "seed": 19,
+      "manifest_digest": "f3c590462319ae28c23e0692d70f7945685a578ce43b0dd93be05666898f1f73"
+    },
+    {
+      "seed": 20,
+      "manifest_digest": "78efa4ccb354a99a41fdcc2633b2b779cf4bb5ca00170ec8cbaa50cb899f7e20"
+    },
+    {
+      "seed": 21,
+      "manifest_digest": "4fe49d633ae24579f269e467878557d5df2075a22d4f434e9c30f52f6bba7be2"
+    },
+    {
+      "seed": 22,
+      "manifest_digest": "3f14516bc938d6c5390fead81dc3923e695b3097dc38f5971b01f719c3be747f"
+    },
+    {
+      "seed": 23,
+      "manifest_digest": "84c01874ba9c9827354c412e1a6a29a9d070f53e6621f3a4365085bdfbb63945"
+    },
+    {
+      "seed": 24,
+      "manifest_digest": "b838e6c9b5daf6b46aeaddbb918984c57b32826e95c3e335851fba0cbd379a32"
+    },
+    {
+      "seed": 25,
+      "manifest_digest": "1ebe64c3d870c285c62b19281b959884f4ba1fc131953b94053276f7d655cf45"
+    },
+    {
+      "seed": 26,
+      "manifest_digest": "309bf7401f6aed94e2664840da060bea869b81a8c09704b3ddeeb7120f1f16e2"
+    },
+    {
+      "seed": 27,
+      "manifest_digest": "a48a177d34368791e7e1b5fe80aa57c7b4c19768da4eb8b778f47dbcdf3d3af7"
+    },
+    {
+      "seed": 28,
+      "manifest_digest": "d5b1271d2441561b9c393ef0806f06b74de4687127cb06fa51b9128359c32edc"
+    },
+    {
+      "seed": 29,
+      "manifest_digest": "6ac4fce7d4f3b0a2c625445f76fa85ac8fb042b579554eb2d28c51cfe4866a8d"
+    }
+  ]
+}

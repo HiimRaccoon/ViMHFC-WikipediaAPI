@@ -1,0 +1,13 @@
+{
+  "passed": true,
+  "checked_files": 46398,
+  "checked_bytes": 23761477512,
+  "changed_or_missing_files": [],
+  "unexpected_new_protected_files": [],
+  "excluded": [
+    "volatile SQLite *-shm",
+    "credentials .env",
+    "new owned output directory"
+  ],
+  "elapsed_seconds": 216.35900000000402
+}

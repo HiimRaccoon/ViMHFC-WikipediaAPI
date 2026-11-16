@@ -1,0 +1,17 @@
+[
+  {
+    "size": 1000,
+    "shape": "hub",
+    "timeout_seconds": 60
+  },
+  {
+    "size": 5000,
+    "shape": "hub",
+    "timeout_seconds": 60
+  },
+  {
+    "size": 10000,
+    "shape": "hub",
+    "timeout_seconds": 60
+  }
+]

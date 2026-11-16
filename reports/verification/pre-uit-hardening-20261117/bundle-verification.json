@@ -1,0 +1,44 @@
+[
+  {
+    "articles": 1000,
+    "database_bytes": 2476113920,
+    "verified_files": 1002,
+    "verified_bytes_per_call": 2484535812,
+    "verification_seconds": [
+      2.094271399997524,
+      2.461673999998311,
+      2.047868199995719
+    ],
+    "calls_for_acquire_and_process_batches_250": 8,
+    "scope": "synthetic byte verification only; filesystem cache affects repeat timings",
+    "campaign_hash_seconds_at_median": 16.754171199980192
+  },
+  {
+    "articles": 5000,
+    "database_bytes": 2476113920,
+    "verified_files": 5002,
+    "verified_bytes_per_call": 2518227812,
+    "verification_seconds": [
+      5.144133800000418,
+      5.0739033999998355,
+      4.979900799997267
+    ],
+    "calls_for_acquire_and_process_batches_250": 40,
+    "scope": "synthetic byte verification only; filesystem cache affects repeat timings",
+    "campaign_hash_seconds_at_median": 202.95613599999342
+  },
+  {
+    "articles": 10000,
+    "database_bytes": 2476113920,
+    "verified_files": 10002,
+    "verified_bytes_per_call": 2560342812,
+    "verification_seconds": [
+      7.866397799996776,
+      7.921726299995498,
+      8.163430500004324
+    ],
+    "calls_for_acquire_and_process_batches_250": 80,
+    "scope": "synthetic byte verification only; filesystem cache affects repeat timings",
+    "campaign_hash_seconds_at_median": 633.7381039996399
+  }
+]

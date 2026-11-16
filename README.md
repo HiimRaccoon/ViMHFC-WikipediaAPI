@@ -4,6 +4,8 @@ Implementation follows [docs/tasks.md](docs/tasks.md) and [the agreed requiremen
 
 ## Current collection readiness — 2026-11-16
 
+Latest review: [Pre-UIT hardening handoff, 2026-11-17](reports/verification/pre-uit-hardening-20261117.md). It documents the stop/resume fixes, synthetic benchmarks and remaining gates; it does not authorize server execution.
+
 Read these files in order:
 
 1. [Large-scale readiness Technical Review Handoff](reports/verification/large-scale-readiness-20261116.md): inventory audit, implementation, scaling estimates, tests, preservation and UIT blockers.

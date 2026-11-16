@@ -6,8 +6,8 @@ from pathlib import Path
 import platform
 import signal
 import shutil
+import sqlite3
 import sys
-import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'backend/src'))
 from vimfc.domain import canonical, Incompatible
@@ -48,6 +48,10 @@ def main(argv=None):
     elif args.action == 'prepare':
         print(canonical(prepare_collection(args.bundle, args.output, request_limit=args.request_limit)))
     elif args.action == 'preflight':
+        if sys.version_info < (3, 12):
+            raise Incompatible('Python 3.12 or newer is required')
+        with sqlite3.connect(':memory:') as probe:
+            probe.execute("SELECT json_extract('{\"ready\":true}','$.ready')").fetchone()
         manifest, _, _ = read_bundle(args.bundle)
         parent = Path(args.workspace_parent).resolve()
         if not parent.is_dir() or not os.access(parent, os.W_OK | os.X_OK) or args.min_free_gib <= 0:
@@ -60,27 +64,30 @@ def main(argv=None):
             raise Incompatible('Insufficient free inodes for article/cache objects')
         print(canonical({'bundle_id': manifest['bundle_id'], 'platform': platform.system(),
                          'python': platform.python_version(), 'free_bytes': free, 'free_inodes': inodes,
+                         'sqlite': sqlite3.sqlite_version,
                          'quota_status': 'REQUIRES_UIT_CONFIRMATION', 'network_status': 'NOT_PROBED',
                          'filesystem_locking': 'REQUIRES_UIT_VALIDATION', 'gpu_required': False}))
     else:
         if args.mode == 'process':
             os.environ['VIMFC_OFFLINE'] = '1'
-        result = collect_batch(args.bundle, args.workspace, mode=args.mode, through=args.through,
-                               batch_size=args.batch_size, max_requests=args.max_requests,
-                               allow_network=args.allow_network)
-        if result['selection'] is not None:
-            workspace = Path(args.workspace)
-            with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', dir=workspace,
-                    prefix='selection-', suffix='.pending', delete=False) as stream:
-                temporary = Path(stream.name)
-                stream.write(canonical(result['selection'])); stream.flush(); os.fsync(stream.fileno())
-            temporary.replace(workspace / 'selection.json')
+        try:
+            result = collect_batch(args.bundle, args.workspace, mode=args.mode, through=args.through,
+                                   batch_size=args.batch_size, max_requests=args.max_requests,
+                                   allow_network=args.allow_network)
+        except (Exception, KeyboardInterrupt) as error:
+            receipt = getattr(error, 'collection_receipt', None)
+            if receipt is None:
+                raise
+            print(canonical(receipt), flush=True)
+            return receipt['exit_code']
         print(canonical(result['summary']))
+        return result['summary']['exit_code']
     return 0
 
 
 if __name__ == '__main__':
     def interrupted(signum, frame):
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
         raise KeyboardInterrupt('Scheduler requested stop; committed checkpoints retained')
     signal.signal(signal.SIGTERM, interrupted)
     try:
@@ -89,5 +96,6 @@ if __name__ == '__main__':
         print(canonical({'stopped': True, 'reason': 'interrupted', 'checkpoint_retained': True}), file=sys.stderr)
         raise SystemExit(130)
     except Exception as error:
-        print(canonical({'stopped': True, 'type': type(error).__name__, 'error': str(error)}), file=sys.stderr)
+        print(canonical({'stopped': True, 'status': 'preflight_error', 'expected_stop': False,
+                         'type': type(error).__name__, 'error': str(error)}), file=sys.stderr)
         raise SystemExit(getattr(error, 'exit_code', 3))

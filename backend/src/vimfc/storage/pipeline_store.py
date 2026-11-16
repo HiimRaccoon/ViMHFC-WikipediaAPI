@@ -47,9 +47,12 @@ class PipelineStore:
     def __enter__(self):
         return self
 
-    def __exit__(self, *args):
-        self.db.execute('PRAGMA wal_checkpoint(TRUNCATE)')
-        self.db.close()
+    def __exit__(self, exc_type, *args):
+        try:
+            if exc_type is None:
+                self.db.execute('PRAGMA wal_checkpoint(TRUNCATE)')
+        finally:
+            self.db.close()
 
     @contextmanager
     def transaction(self):
@@ -59,11 +62,10 @@ class PipelineStore:
         self.db.execute('BEGIN IMMEDIATE')
         try:
             yield
+            self.db.commit()
         except BaseException:
             self.db.rollback()
             raise
-        else:
-            self.db.commit()
 
     def create(self, snapshot, config, reuse_run=None):
         previous=None

@@ -1,0 +1,36 @@
+[
+  {
+    "size": 1000,
+    "shape": "hub",
+    "fixture_seconds": 0.032838599996466655,
+    "whole_pool": {
+      "seconds": 15.452726800001983,
+      "selected": 1000,
+      "selection_digest": "dc425e4b77599c69bc36af566aa7d9850e86eb9de8e4f81ac2926fe952a57739"
+    },
+    "half_pool": {
+      "seconds": 10.984156600003189,
+      "selected": 500,
+      "selection_digest": "71162d01b3c5b51f847fa5f1111dbf7ec736dfd518727806c5ece39353630bb7"
+    },
+    "graph": {
+      "seconds": 0.0017218000066350214,
+      "vertices": 1000,
+      "directed_nonself_edges": 1998,
+      "potential_two_hop_paths": 997002
+    },
+    "peak_rss_bytes_sampled": 44019712
+  },
+  {
+    "size": 5000,
+    "shape": "hub",
+    "timeout_seconds": 90,
+    "peak_rss_bytes_sampled_before_timeout": 100564992
+  },
+  {
+    "size": 10000,
+    "shape": "hub",
+    "timeout_seconds": 90,
+    "peak_rss_bytes_sampled_before_timeout": 172916736
+  }
+]

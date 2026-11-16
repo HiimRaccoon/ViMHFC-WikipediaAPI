@@ -3,12 +3,16 @@ from copy import deepcopy
 from dataclasses import asdict
 import hashlib
 import json
+import os
 from pathlib import Path
+import re
 import shutil
 import sqlite3
+import tempfile
 import time
+import uuid
 
-from vimfc.domain import Incompatible, SourceUnavailable, canonical, digest, at_or_before
+from vimfc.domain import Incompatible, SourceUnavailable, canonical, digest, at_or_before, now
 from vimfc.source.dump_download import exclusive
 from vimfc.source.identities import title_at_snapshot, normalize_title
 from vimfc.source.mediawiki import MediaWikiClient
@@ -28,6 +32,64 @@ from .seed_only import plan_seed_cohort, seed_policy
 
 class CollectionBudget(Incompatible):
     code = 'collection_budget'
+    exit_code = 5
+
+    def __init__(self, message, scope='invocation'):
+        super().__init__(message)
+        self.scope = scope
+
+
+def failure_kind(error):
+    """Operational disposition only; source validation and edge policy stay intact."""
+    message = str(error)
+    code = getattr(error, 'code', '') or ''
+    sqlite_code = getattr(error, 'sqlite_errorcode', 0) or 0
+    cause = getattr(error, '__cause__', None)
+    if isinstance(cause, SourceUnavailable) and cause is not error and failure_kind(cause) == 'integrity_fatal':
+        return 'integrity_fatal'
+    if ((sqlite_code & 255) in {sqlite3.SQLITE_CORRUPT, sqlite3.SQLITE_NOTADB}
+            or any(part in code for part in ('integrity', 'hash_mismatch', 'invalid_historical_cache', 'snapshot_mismatch', 'cutoff'))
+            or re.search(r'mismatch|checksum|corrupt|future revision|beyond snapshot|ambiguous historical move chain|conflicting raw|disk image is malformed', message, re.I)):
+        return 'integrity_fatal'
+    if isinstance(error, CollectionBudget):
+        return 'budget_exhausted'
+    if isinstance(error, KeyboardInterrupt) or isinstance(error, sqlite3.Error) and getattr(error, 'sqlite_errorcode', None) == sqlite3.SQLITE_INTERRUPT:
+        return 'interrupted'
+    if isinstance(error, SourceUnavailable):
+        if code in {'history_unavailable', 'historical_content_unavailable'}:
+            return 'missing'
+        if code in {'article_namespace_excluded', 'article_model_unsupported'} or message == 'Candidate is not historical wikitext':
+            return 'unsupported'
+        if error.retryable:
+            return 'retryable'
+        return 'needs_review'
+    if isinstance(error, sqlite3.OperationalError) or isinstance(error, OSError):
+        return 'operational_error'
+    return 'integrity_fatal'
+
+
+def _publish_json(path, value):
+    with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', dir=path.parent,
+            prefix=path.stem + '-', suffix='.pending', delete=False) as stream:
+        temporary = Path(stream.name)
+        stream.write(canonical(value)); stream.flush(); os.fsync(stream.fileno())
+    temporary.replace(path)
+
+
+def _progress(store, through):
+    states = dict(store.db.execute('SELECT status,count(*) FROM collection_items GROUP BY status'))
+    eligible = store.db.execute("SELECT coalesce(sum(json_extract(record_json,'$.quality.eligible')),0) FROM collection_items WHERE status='processed'").fetchone()[0]
+    blockers = [json.loads(r[0]) for r in store.db.execute("SELECT record_json FROM collection_items WHERE status='needs_review' ORDER BY page_id")]
+    unseen = through - sum(states.values())
+    to_acquire = unseen + states.get('retryable', 0)
+    to_process = states.get('acquired', 0)
+    return {'checkpoint_states': states, 'not_seen': unseen, 'remaining_to_acquire': to_acquire,
+            'remaining_to_process': to_process, 'eligible_supply': int(eligible),
+            'quality_rejected': states.get('processed', 0) - int(eligible),
+            'missing': states.get('missing', 0), 'unsupported': states.get('unsupported', 0),
+            'needs_review': states.get('needs_review', 0), 'retryable': states.get('retryable', 0),
+            'remaining_in_prefix': to_acquire + to_process + states.get('needs_review', 0),
+            'blockers': blockers, 'progress_available': True}
 
 
 class CollectionArchive(CheckedArchive):
@@ -99,7 +161,7 @@ def _items(store):
     items = []
     for row in store.db.execute('SELECT * FROM collection_items ORDER BY page_id'):
         record = json.loads(row['record_json'])
-        if row['status'] not in {'acquired', 'missing', 'processed'} or row['record_hash'] != digest(record) or record['page_id'] != row['page_id']:
+        if row['status'] not in {'acquired', 'missing', 'unsupported', 'needs_review', 'retryable', 'processed'} or row['record_hash'] != digest(record) or record['page_id'] != row['page_id']:
             raise Incompatible('Collection checkpoint checksum/identity differs')
         items.append((row['status'], record))
     return items
@@ -111,11 +173,12 @@ def _save(store, status, record):
 
 
 def _checked_acquisition(provider, candidate):
-    raw = provider._raw(candidate)
+    raw = provider._acquire_raw(candidate)
     ref = raw.ref
-    if (ref.site != 'viwiki' or ref.page_id != candidate['page_id'] or ref.snapshot != SNAPSHOT
+    if (ref.site != 'viwiki' or type(ref.page_id) is not int or ref.page_id != candidate['page_id'] or ref.snapshot != SNAPSHOT
+            or not isinstance(ref.title, str) or not ref.title.strip()
             or type(ref.revision_id) is not int or ref.revision_id <= 0
-            or not at_or_before(ref.revision_timestamp, SNAPSHOT) or raw.content_model != 'wikitext'):
+            or not at_or_before(ref.revision_timestamp, SNAPSHOT)):
         raise Incompatible('Historical acquisition identity/model/cutoff differs')
     selected = provider.store.db.execute('SELECT record_json FROM snapshot_revision_refs WHERE site=? AND identity=? AND snapshot=?',
                                           ('viwiki', str(ref.page_id), SNAPSHOT)).fetchone()
@@ -123,12 +186,17 @@ def _checked_acquisition(provider, candidate):
         raise Incompatible('Selected historical revision proof missing')
     pin = json.loads(selected[0])
     moves = provider.identities._move_index(pin.get('lookup_timestamp'))
-    if (any(pin[k] != asdict(ref)[k] for k in ('page_id', 'revision_id', 'revision_timestamp', 'snapshot'))
+    if (type(pin['page_id']) is not int or type(pin['revision_id']) is not int
+            or any(pin[k] != asdict(ref)[k] for k in ('page_id', 'revision_id', 'revision_timestamp', 'snapshot'))
             or title_at_snapshot(ref.page_id, pin['title'], moves, SNAPSHOT) != ref.title):
         raise Incompatible('Historical selected revision/title differs')
     value = provider.source.cache.get(raw.cache_ref)
+    registered = provider.store.db.execute('SELECT record_json FROM source_revisions WHERE site=? AND revision_id=?',
+                                           ('viwiki', ref.revision_id)).fetchone()
+    if not registered or json.loads(registered[0]).get('cache_ref') != raw.cache_ref:
+        raise Incompatible('Acquired raw and registered source cache reference mismatch')
     encoded = raw.content.encode('utf-8')
-    if (value['content'] != raw.content or value['page_id'] != ref.page_id or value['timestamp'] != ref.revision_timestamp
+    if (value['content'] != raw.content or type(value['page_id']) is not int or value['page_id'] != ref.page_id or value['timestamp'] != ref.revision_timestamp
             or value['content_model'] != raw.content_model
             or Path(raw.cache_ref['path']).parts[:2] != ('viwiki', str(ref.revision_id))
             or value['local_sha256'] != raw.local_sha256 or value['source_sha1'] != raw.source_sha1
@@ -136,7 +204,9 @@ def _checked_acquisition(provider, candidate):
         raise Incompatible('Checked raw identity/hash differs')
     if provider.source.integrity_registry:
         provider.source.integrity_registry.check(ref)
-    provider._discovery_namespace(raw, allow_fetch=False)
+    provider._discovery_namespace(raw)
+    if raw.content_model != 'wikitext':
+        raise SourceUnavailable('Candidate is not historical wikitext', code='article_model_unsupported')
     return {'page_id': ref.page_id, 'revision_id': ref.revision_id, 'raw_hash': raw.local_sha256}
 
 
@@ -163,7 +233,9 @@ def collect_batch(bundle, workspace, *, mode, through, batch_size=250, max_reque
     workspace = Path(workspace).resolve()
     if not (workspace / 'workspace.json').is_file():
         raise Incompatible('Prepared workspace required')
-    if mode not in ('acquire', 'process') or type(through) is not int or through <= 0 or not 1 <= batch_size <= 1000 or max_requests < 0:
+    if (mode not in ('acquire', 'process') or type(through) is not int or through <= 0
+            or type(batch_size) is not int or not 1 <= batch_size <= 1000
+            or type(max_requests) is not int or max_requests < 0):
         raise Incompatible('Invalid collection bounds/mode')
     if mode == 'acquire' and not allow_network:
         raise Incompatible('Acquisition requires explicit network authorization')
@@ -187,8 +259,9 @@ def collect_batch(bundle, workspace, *, mode, through, batch_size=250, max_reque
             fatal = store.db.execute("SELECT value FROM collection_control WHERE key='fatal'").fetchone()
             if fatal:
                 raise Incompatible('Previous fatal collection stop requires review: ' + fatal[0])
-            done = {r['page_id'] for status, r in items}
-            if not done <= {c['page_id'] for c in candidates[:through]}:
+            recorded = {r['page_id'] for status, r in items}
+            done = {r['page_id'] for status, r in items if status != 'retryable'}
+            if not recorded <= {c['page_id'] for c in candidates[:through]}:
                 raise Incompatible('Cannot reduce the processed inventory prefix')
             processed = [r for status, r in items if status == 'processed']
             eligible = sum(r['quality']['eligible'] for r in processed)
@@ -199,8 +272,10 @@ def collect_batch(bundle, workspace, *, mode, through, batch_size=250, max_reque
                 if request.url.host != 'vi.wikipedia.org' or request.url.params.get('maxlag') != '5':
                     raise Incompatible('Only maxlag=5 Vietnamese Wikipedia acquisition is allowed')
                 charged = int(store.db.execute("SELECT value FROM collection_control WHERE key='attempts'").fetchone()[0])
-                if attempted >= max_requests or charged >= header['request_limit']:
-                    raise CollectionBudget('Physical request budget exhausted')
+                if charged >= header['request_limit']:
+                    raise CollectionBudget('Physical collection request budget exhausted', 'collection')
+                if attempted >= max_requests:
+                    raise CollectionBudget('Physical invocation request budget exhausted')
                 last = store.db.execute("SELECT value FROM collection_control WHERE key='last_request'").fetchone()
                 if last:
                     delay = max(0, float(last[0]) + 1 - time.time())
@@ -212,7 +287,9 @@ def collect_batch(bundle, workspace, *, mode, through, batch_size=250, max_reque
                     store.db.execute("INSERT INTO collection_control VALUES ('last_request',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (str(time.time()),))
                 attempted += 1
 
-            failure = None; count = 0; selection = None
+            failure = None; caught = None; count = 0; selection = None
+            active_page = None; phase = mode; receipt_errors = []
+            invocation = str(uuid.uuid4()); started_at = now()
             try:
                 if mode == 'acquire' and eligible < header['target']:
                     cfg = store.run(context['run_id'])['config']
@@ -225,12 +302,17 @@ def collect_batch(bundle, workspace, *, mode, through, batch_size=250, max_reque
                         for candidate in candidates[:through]:
                             if candidate['page_id'] in done:
                                 continue
+                            active_page = candidate['page_id']
                             try:
                                 _save(store, 'acquired', _checked_acquisition(provider, candidate))
                             except SourceUnavailable as error:
-                                if error.code not in ('history_unavailable', 'historical_content_unavailable', 'article_namespace_excluded'):
+                                kind = failure_kind(error)
+                                if kind not in {'missing', 'unsupported', 'needs_review', 'retryable'}:
                                     raise
-                                _save(store, 'missing', {'page_id': candidate['page_id'], 'reason': error.code})
+                                _save(store, kind, {'page_id': candidate['page_id'], 'reason': error.code,
+                                    'message': str(error), 'retry_at': error.retry_at, 'disposition': kind})
+                                if kind == 'retryable':
+                                    raise
                             count += 1
                             if count >= batch_size:
                                 break
@@ -240,6 +322,7 @@ def collect_batch(bundle, workspace, *, mode, through, batch_size=250, max_reque
                         archive.registry = source.registry
                         try:
                             for record in processed:
+                                active_page = record['page_id']
                                 _, proof = archive.article_source(record['page_id'])
                                 if proof != record['source_validation']:
                                     raise Incompatible('Processed source provenance changed before selection')
@@ -247,6 +330,7 @@ def collect_batch(bundle, workspace, *, mode, through, batch_size=250, max_reque
                                 page = candidate['page_id']
                                 if page not in acquired or eligible >= header['target']:
                                     continue
+                                active_page = page
                                 raw, proof = archive.article_source(page)
                                 ref = proof['article']
                                 record = {'page_id': page, 'title': ref['title'], 'revision_id': ref['revision_id'],
@@ -261,6 +345,7 @@ def collect_batch(bundle, workspace, *, mode, through, batch_size=250, max_reque
                                 if count >= batch_size:
                                     break
                             records = [r for status, r in _items(store) if status == 'processed']
+                            active_page = None; phase = 'selection'
                             archive.collection_targets = {}
                             for record in records:
                                 if 'redirect' not in record['article_kinds']:
@@ -271,20 +356,68 @@ def collect_batch(bundle, workspace, *, mode, through, batch_size=250, max_reque
                             selection['graph'] = graph_metrics(rankable_links(a for a in selection['articles'] if a['page_id'] in selected))
                             selection['edges'] = edge_report(selection['articles'])
                             selection['pilot_accepted'] = False
+                            phase = 'publication'
+                            _publish_json(workspace / 'selection.json', selection)
                         finally:
                             archive.registry = None
             except BaseException as error:
-                failure = {'type': type(error).__name__, 'message': str(error), 'code': getattr(error, 'code', None)}
-                if (not isinstance(error, (SourceUnavailable, KeyboardInterrupt, CollectionBudget))
-                        or isinstance(error, SourceUnavailable) and not error.retryable):
-                    store.db.execute("INSERT OR REPLACE INTO collection_control VALUES ('fatal',?)", (canonical(failure),))
-                raise
+                caught = error
+                failure = {'type': type(error).__name__, 'message': str(error), 'code': getattr(error, 'code', None),
+                           'disposition': failure_kind(error), 'page_id': active_page, 'phase': phase,
+                           'retry_at': getattr(error, 'retry_at', None)}
+                if failure['disposition'] == 'integrity_fatal':
+                    try:
+                        store.db.execute("INSERT OR REPLACE INTO collection_control VALUES ('fatal',?)", (canonical(failure),))
+                    except sqlite3.Error as receipt_error:
+                        receipt_errors.append(str(receipt_error))
             finally:
-                states = dict(store.db.execute('SELECT status,count(*) FROM collection_items GROUP BY status'))
-                summary = {'mode': mode, 'through': through, 'processed_this_invocation': count,
-                           'physical_requests': attempted, 'cumulative_requests': int(store.db.execute("SELECT value FROM collection_control WHERE key='attempts'").fetchone()[0]),
-                           'eligible_supply': eligible, 'elapsed_seconds': round(time.monotonic() - started, 3),
-                           'checkpoint_states': states, 'remaining_in_prefix': through - sum(states.values()),
-                           'blocker': failure, 'pilot_accepted': False}
-                store.db.execute('INSERT INTO collection_invocations(record_json) VALUES (?)', (canonical(summary),))
+                try:
+                    progress = _progress(store, through)
+                    charged = int(store.db.execute("SELECT value FROM collection_control WHERE key='attempts'").fetchone()[0])
+                except (sqlite3.Error, ValueError) as receipt_error:
+                    progress = {key: None for key in ('remaining_to_acquire', 'remaining_to_process', 'eligible_supply',
+                                'missing', 'unsupported', 'needs_review', 'retryable', 'remaining_in_prefix')}
+                    progress.update(progress_available=False, blockers=[]); charged = None
+                    receipt_errors.append(str(receipt_error))
+                    if caught is None:
+                        caught = receipt_error
+                kind = failure_kind(caught) if caught else ('needs_review' if progress.get('blockers') else 'completed')
+                if caught is not None and failure is None:
+                    failure = {'type': type(caught).__name__, 'message': str(caught), 'phase': 'receipt', 'disposition': kind}
+                exit_code = {'completed': 0, 'missing': 2, 'unsupported': 2, 'needs_review': 2, 'budget_exhausted': 5, 'retryable': 75,
+                             'operational_error': 75, 'interrupted': 130, 'integrity_fatal': 3}[kind]
+                summary = {'invocation_id': invocation, 'started_at': started_at, 'finished_at': now(),
+                           'mode': mode, 'through': through, 'processed_this_invocation': count,
+                           'physical_requests': attempted, 'cumulative_requests': charged,
+                           'elapsed_seconds': round(time.monotonic() - started, 3), **progress,
+                           'status': kind, 'expected_stop': kind in {'completed', 'budget_exhausted', 'retryable', 'interrupted'},
+                           'exit_code': exit_code, 'stop_reason': failure,
+                           'budget_scope': getattr(caught, 'scope', None),
+                           'blocker': failure if kind in {'integrity_fatal', 'operational_error'} else None,
+                           'selection_published': selection is not None and caught is None,
+                           'receipt_errors': receipt_errors, 'pilot_accepted': False}
+                if summary['blocker']:
+                    summary['blockers'].append(summary['blocker'])
+                try:
+                    store.db.execute('INSERT INTO collection_invocations(record_json) VALUES (?)', (canonical(summary),))
+                except sqlite3.Error as receipt_error:
+                    receipt_errors.append(str(receipt_error))
+                    if caught is None:
+                        caught = receipt_error
+                        reason = {'type': type(caught).__name__, 'message': str(caught), 'phase': 'receipt'}
+                        summary['blockers'].append(reason)
+                        summary.update(status=failure_kind(caught), expected_stop=False, exit_code=75, blocker=reason, stop_reason=reason)
+                try:
+                    _publish_json(workspace / 'last-invocation.json', summary)
+                except OSError as receipt_error:
+                    receipt_errors.append(str(receipt_error))
+                    if caught is None:
+                        caught = receipt_error
+                        reason = {'type': type(caught).__name__, 'message': str(caught), 'phase': 'receipt'}
+                        summary['blockers'].append(reason)
+                        summary.update(status='operational_error', expected_stop=False, exit_code=75, blocker=reason, stop_reason=reason)
+                if caught is not None:
+                    caught.collection_receipt = summary
+            if caught is not None:
+                raise caught
             return {'summary': summary, 'selection': selection}
