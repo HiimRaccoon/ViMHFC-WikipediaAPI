@@ -198,7 +198,7 @@ def evaluate_archive(context, *, expected_count=1000, registry_path=None, progre
             'quality_rejections_overlapping': dict(Counter(reason for r in records for reason in r['quality']['reasons'])),
             'classification_outcomes': dict(Counter(r['classification']['outcome'] for r in records)),
             'classification_reasons': dict(Counter(r['classification'].get('reason') or 'none' for r in records)),
-            'records': records, 'api_requests': {'wikimedia': 0, 'groq': 0, 'other_llm': 0},
+            'records': records, 'api_requests': {'wikimedia': 0, 'other_llm': 0},
             'human_quality': 'UNASSESSED', 'elapsed_seconds': time.perf_counter() - started}
 
 

@@ -1,0 +1,146 @@
+{
+  "acquire_record_bytes_mean": 12093.187,
+  "acquire_record_bytes_p95": 44251,
+  "lead_record_bytes_mean": 7747.884,
+  "lead_record_bytes_p95": 18913,
+  "prefix_10000_strata": {
+    "Award / Competition": 379,
+    "Creative Work": 1362,
+    "Event": 650,
+    "Landmark / Facility": 677,
+    "exploration": 2000,
+    "Location": 970,
+    "Organization": 695,
+    "Person": 2722,
+    "Science / Technology": 545
+  },
+  "python_packages": {
+    "fastapi": "0.162.0",
+    "pydantic": "2.14.1",
+    "httpx": "0.28.1",
+    "mwparserfromhell": "0.7.2",
+    "psutil": "7.2.2",
+    "uvicorn": "0.54.0",
+    "pytest": "9.1.1",
+    "setuptools": "80.9.0"
+  },
+  "historical_invocation": {
+    "new_acquire": 193,
+    "physical_acquisition_revisions": 387,
+    "physical_acquisition_moves": 192,
+    "physical_acquisition_pageprops": 193,
+    "end_to_end_seconds": 9609.953864,
+    "peak_rss_bytes": 612798464
+  },
+  "scenarios": [
+    {
+      "scenario": "pilot10000",
+      "candidates": 10000,
+      "pinned_raw_cache_coverage_upper_bound": 1221,
+      "new_candidates": 8779,
+      "request_range_assuming_3_to_4_each": [
+        26337,
+        35116
+      ],
+      "paced_hours_at_1second_starts": [
+        7.315833333333333,
+        9.754444444444445
+      ],
+      "raw_compressed_growth_mib": 62.10141565178135,
+      "base_rows_growth_gib_before_indexes_and_wal": 0.16222220129240303
+    },
+    {
+      "scenario": "eligible20000_at_observed_36_8pct",
+      "candidates": 54348,
+      "pinned_raw_cache_coverage_upper_bound": 1521,
+      "new_candidates": 52827,
+      "request_range_assuming_3_to_4_each": [
+        158481,
+        211308
+      ],
+      "paced_hours_at_1second_starts": [
+        44.0225,
+        58.696666666666665
+      ],
+      "raw_compressed_growth_mib": 373.6907944682371,
+      "base_rows_growth_gib_before_indexes_and_wal": 0.9761604086654261
+    },
+    {
+      "scenario": "eligible20000_at_25pct",
+      "candidates": 80000,
+      "pinned_raw_cache_coverage_upper_bound": 1613,
+      "new_candidates": 78387,
+      "request_range_assuming_3_to_4_each": [
+        235161,
+        313548
+      ],
+      "paced_hours_at_1second_starts": [
+        65.3225,
+        87.09666666666666
+      ],
+      "raw_compressed_growth_mib": 554.498652317597,
+      "base_rows_growth_gib_before_indexes_and_wal": 1.448469266739674
+    },
+    {
+      "scenario": "inventory100000",
+      "candidates": 100000,
+      "pinned_raw_cache_coverage_upper_bound": 1655,
+      "new_candidates": 98345,
+      "request_range_assuming_3_to_4_each": [
+        295035,
+        393380
+      ],
+      "paced_hours_at_1second_starts": [
+        81.95416666666667,
+        109.27222222222223
+      ],
+      "raw_compressed_growth_mib": 695.678747268987,
+      "base_rows_growth_gib_before_indexes_and_wal": 1.8172619189089163
+    }
+  ],
+  "model_assumptions": {
+    "not_a_forecast": true,
+    "selection_yield_observed": 0.368,
+    "pace_seconds_per_start": 1,
+    "request_latency_seconds_sensitivity": [
+      1,
+      3
+    ],
+    "move_index_horizon_growth_unmeasured": true,
+    "storage_overhead_factor_sensitivity": [
+      2,
+      4
+    ]
+  },
+  "payload_characters": {
+    "stage_results": [
+      21220,
+      1423401489
+    ],
+    "identity_resolutions": [
+      8966,
+      117227181
+    ],
+    "snapshot_revision_refs": [
+      17992,
+      4059550
+    ],
+    "source_revisions": [
+      9959,
+      1903313
+    ],
+    "dependency_manifests": [
+      2062,
+      73069997
+    ],
+    "classification_results": [
+      3303,
+      627880415
+    ]
+  },
+  "move_index_rows_character_payload_max": [
+    5228,
+    20470842,
+    10225
+  ]
+}

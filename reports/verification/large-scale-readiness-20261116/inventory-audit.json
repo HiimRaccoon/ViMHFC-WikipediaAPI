@@ -1,0 +1,137 @@
+{
+  "inventory_id": "43c2a6420e67b562e5ba2e4558a8961dd4fd4e964027c8b7c0d6bfff774fa4ab",
+  "inventory_sha256": "0e206e769456b9a7b315898273da29af99a3f912b8031238dd1c2ef415aad4ce",
+  "unique_ids": 100000,
+  "duplicates": 0,
+  "namespace_counts": {
+    "0": 100000
+  },
+  "metadata_counts": {
+    "all_pages": 4605472,
+    "ns0_nonredirect": 1304753
+  },
+  "inventory_ids_missing_ns0_nonredirect_metadata": 0,
+  "cache": {
+    "snapshot_page_ids": 4599,
+    "snapshot_ids_in_inventory": 1655,
+    "registered_raw_page_ids": 4599,
+    "raw_page_ids_in_inventory": 1655,
+    "missing_registered_raw": [],
+    "invalid_registered_raw": [],
+    "viwiki_compressed_bytes": 34112989,
+    "viwiki_utf8_bytes": 104875791
+  },
+  "checked_cohort": {
+    "checked": 1000,
+    "blockers": []
+  },
+  "registry": {
+    "observations": 105,
+    "states": {
+      "REVIEWED_REFUSAL": 3,
+      "MISSING_HISTORICAL_DEPENDENCY": 102
+    }
+  },
+  "ordered_inventory": {
+    "count": 100000,
+    "cohort_hash": "dd6eff9097f086efafd86c748227dee035fc0ba80e446e08a66e949e5903ad5f",
+    "prefix_1000_matches_original": true,
+    "sampling_strata": {
+      "Award / Competition": 379,
+      "Creative Work": 2235,
+      "Event": 650,
+      "Landmark / Facility": 677,
+      "exploration": 44380,
+      "Location": 970,
+      "Organization": 695,
+      "Person": 48557,
+      "Science / Technology": 1457
+    }
+  },
+  "api_listing_checkpoint": {
+    "charged_attempts": 76,
+    "unique_candidates": 6848,
+    "host_state": {
+      "backoff_seconds": 5.703925534402085,
+      "failure_streak": 1,
+      "operational_policy": "inventory-host-1",
+      "reason": "http_503",
+      "retry_at": "2026-10-28T03:43:03.868235Z",
+      "site": "viwiki",
+      "state": "open"
+    },
+    "sealed": false,
+    "duplicates": 0,
+    "overlap_with_dump": 1077,
+    "additional_to_dump": 5771
+  },
+  "portable_input_bytes": {
+    "source_database": 2476113920,
+    "raw_cache_all_sites": 70090544,
+    "inventory": 63964937
+  },
+  "stage_counts": [
+    [
+      "acquire",
+      "completed",
+      1000
+    ],
+    [
+      "acquire_manifest",
+      "completed",
+      971
+    ],
+    [
+      "acquire_manifest",
+      "pending",
+      2
+    ],
+    [
+      "classify",
+      "completed",
+      985
+    ],
+    [
+      "extract",
+      "completed",
+      985
+    ],
+    [
+      "item_hint_refresh",
+      "completed",
+      973
+    ],
+    [
+      "item_hint_refresh",
+      "deferred",
+      13
+    ],
+    [
+      "process",
+      "completed",
+      985
+    ],
+    [
+      "quality",
+      "completed",
+      985
+    ],
+    [
+      "resolve_links",
+      "completed",
+      162
+    ],
+    [
+      "verify_namespace",
+      "completed",
+      13
+    ]
+  ],
+  "baseline": {
+    "eligible": 368,
+    "candidate_internal_edges": 19,
+    "two_hop_paths": 1,
+    "snapshot": "2026-10-25T03:00:00Z",
+    "source_run_id": "80524a0f-87fe-4c01-af9f-dfa4b3951899"
+  }
+}

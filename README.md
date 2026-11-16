@@ -2,6 +2,17 @@
 
 Implementation follows [docs/tasks.md](docs/tasks.md) and [the agreed requirements](docs/docs.md).
 
+## Current collection readiness — 2026-11-16
+
+Read these files in order:
+
+1. [Large-scale readiness Technical Review Handoff](reports/verification/large-scale-readiness-20261116.md): inventory audit, implementation, scaling estimates, tests, preservation and UIT blockers.
+2. [Linux/UIT operating procedure](docs/large-scale-annotation-readiness.md): portable inputs, incremental acquisition, offline processing and checkpoint/resume.
+3. [Slurm Pilot 10,000 template](configs/slurm/annotation-pilot10000.sbatch) and [planning configuration](configs/slurm/annotation-pilot10000.json).
+4. [Archived V2 Pilot 1,000 result](reports/verification/annotation-collection-v2-pilot1000-resume-handoff-20261116.md): 368 eligible articles, 19 internal candidate edges and one structural two-hop path.
+
+Readiness is preparation only: 119 focused and 774 full offline tests passed. The incremental worker retains `quality-relaxed-1`, `annotation-edge-1` and `rank-annotation-1`; it acquires no Wikidata classification and calls no LLM. UIT transfer, native Linux validation, Pilot execution and production remain subject to separate user approval. Legacy workflow descriptions below retain their historical scope.
+
 Forward corpus collection uses **Stratified Seed-only Discovery**: candidate identities now come from [verified official dump metadata](docs/dump-inventory.md), consumed by unchanged [seed-only-2](docs/seed-only.md). It retains qid-5/lead-4/quality-2.1/rank-1, eight sampling quotas and historical evidence guards. [Legacy/Hybrid experiment commands](docs/discovery-experiments.md) remain for historical reproducibility; no further comparison arms are planned. Inventory acquisition never starts a pilot or authorizes Production.
 The current builder defaults use historical Primary-First, Optional-Subtype classification (`qid-5`), `lead-4`, and `quality-2` with explicit revision `quality-2.1` (`pipeline-6.1`). New-rule source validation uses an isolated replay run only when explicitly requested. Existing Pilot 1,000 resume contexts retain their pinned lead-3 rules, durable deferrals, bounded retries and explicit source completeness. See [Windows resume commands](docs/pilot1000-resume.md) for that historical run. Earlier assessments remain historical records. Annotation and UI features in T054+ are not implemented yet; the frontend directory is setup only (T002).
 
@@ -59,11 +70,3 @@ Builder state is `data/pipeline.sqlite`, with compressed hash-verified historica
 ## Research boundaries
 
 The [ViMQA paper](https://aclanthology.org/2022.lrec-1.700.pdf) was read for Section 2, Figures 2–3, Table 3 and Section 4.2; the original QA methodology and this project's adaptations remain separate in [research_vimqa.md](docs/research_vimqa.md). Historical raw wikitext, not live template rendering, supplies all retained lead prose and operational links. Wikidata only classifies entities. Scores estimate partner potential and never create claims, labels, hops, or human quality assessments.
-
-## Optional Groq classification experiment
-
-The separate [Windows/local Groq workflow](docs/groq-classification.md) prepares historical inputs, validates text-grounded suggestions and exports human review. It does not change Wikidata-verified labels, article eligibility or the accepted graph; no GPU is required.
-
-The [local Human Review UI](docs/groq-human-review-ui.md) provides blind semantic labeling, durable revision history, historical evidence audit and partitioned RQ1/RQ2/RQ3 evaluation for saved responses. Start it with `python scripts/groq_review.py serve --profile configs/groq-review.local.json`; preparation, review and evaluation require no Groq API calls. The original corpus-annotation frontend roadmap remains separate from this experiment-only interface.
-
-The current experiment uses [Wikidata-first + Groq-assisted shadow integration](docs/groq-integration.md). Verified qid-5 primaries always win; LLM results remain provisional and do not change verified eligibility. Human Review is deferred for this integration. The bounded live invocation stopped at a provider rate limit; no automatic resume or production execution is authorized.

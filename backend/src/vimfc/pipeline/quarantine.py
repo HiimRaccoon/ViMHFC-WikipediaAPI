@@ -2,7 +2,7 @@
 from dataclasses import asdict
 import hashlib
 import json
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 from vimfc.domain import Incompatible,SourceRevisionRef,digest,utc
 
@@ -44,22 +44,23 @@ class ReviewedIntegrityQuarantine:
         self.source_ref={k:self.entry[k] for k in ('site','identity','page_id','title','revision_id','revision_timestamp','snapshot')}
 
     @classmethod
-    def from_file(cls,path,run):
-        path=Path(path).resolve()
+    def from_file(cls,path,run,*,resolve_path=None):
+        path=(PureWindowsPath(path) if PureWindowsPath(path).is_absolute() else Path(path).resolve()) if resolve_path else Path(path).resolve()
         try:
-            record=json.loads(path.read_text(encoding='utf-8-sig'))
+            local=resolve_path(str(path)) if resolve_path else path
+            record=json.loads(local.read_text(encoding='utf-8-sig'))
             if record.get('format')==SET_FORMAT:
                 if (not isinstance(record.get('approvals'),list) or not 2<=len(record['approvals'])<=8
                     or record!=refusal_set_record(record['approvals'])):
                     raise ValueError('Invalid/noncanonical refusal set')
-                members=[cls._from_record(r,path,run) for r in record['approvals']]
+                members=[cls._from_record(r,path,run,resolve_path) for r in record['approvals']]
                 return ReviewedIntegrityQuarantineSet(record,members)
-            return cls._from_record(record,path,run)
+            return cls._from_record(record,path,run,resolve_path)
         except (ValueError,TypeError,KeyError,IndexError,OSError,AttributeError) as error:
             raise Incompatible('Invalid reviewed integrity quarantine/evidence: '+str(error)) from error
 
     @classmethod
-    def _from_record(cls,record,path,run):
+    def _from_record(cls,record,path,run,resolve_path=None):
         try:
             if (record['format']!=FORMAT or record['run_id']!=run['pipeline_run_id']
                 or record['snapshot']!=run['snapshot'] or record['config_hash']!=run['config_hash']
@@ -68,7 +69,7 @@ class ReviewedIntegrityQuarantine:
             entry=record['revisions'][0]
             if entry['site']!='wikidata' or entry['snapshot']!=record['snapshot']:
                 raise ValueError('Wrong reviewed source/snapshot')
-            evidence_path=(path.parent/entry['evidence_path']).resolve()
+            evidence_path=resolve_path(str(path.parent/entry['evidence_path'])) if resolve_path else (path.parent/entry['evidence_path']).resolve()
             evidence=evidence_path.read_bytes()
             if hashlib.sha256(evidence).hexdigest()!=entry['evidence_sha256']:
                 raise ValueError('Reviewed response artifact changed')
@@ -89,7 +90,8 @@ class ReviewedIntegrityQuarantine:
             # it must bind the actual artifact as well as the captured response.
             review=record['review']
             if review.get('rca_path') or review.get('rca_sha256'):
-                rca=(path.parent/review['rca_path']).resolve().read_bytes()
+                rca_path=resolve_path(str(path.parent/review['rca_path'])) if resolve_path else (path.parent/review['rca_path']).resolve()
+                rca=rca_path.read_bytes()
                 if hashlib.sha256(rca).hexdigest()!=review['rca_sha256']:raise ValueError('Reviewed RCA artifact changed')
         except (ValueError,TypeError,KeyError,IndexError,OSError,AttributeError) as error:
             raise Incompatible('Invalid reviewed integrity quarantine/evidence: '+str(error)) from error

@@ -71,7 +71,7 @@ def handoff(result, preservation, report_dir, failure=None):
               '## Verification and preservation', '',
               'Focused/full tests: NOT_RECORDED_IN_THIS_INVOCATION. Consult the final test log before claiming a passing release.',
               'Preservation: ' + canonical(preservation), '',
-              'No Groq or other LLM API requests, new labels, annotation UI, cohort expansion, production run or Git commit were performed.', '',
+              'No LLM API requests, new labels, cohort expansion, production run or Git commit were performed.', '',
               '## Recommended next steps', '',
               'Review unresolved and ambiguous historical target receipts, sample real evidence chains with annotators, and profile selection before scaling.', '']
     return '\n'.join(lines)
@@ -167,7 +167,7 @@ def main():
                'source_context': str(Path(args.context).resolve()), 'prior_relaxed': identity['prior_relaxed'],
                'result_manifest_id': manifest['manifest_id'] if manifest else None,
                'preservation': preservation, 'allow_live': args.allow_live,
-               'api_requests': result['api_requests'] if result else {'groq': 0, 'other_llm': 0}}
+               'api_requests': result['api_requests'] if result else {'other_llm': 0}}
     write(report_dir / 'execution-receipt.json', receipt)
     (report_dir / 'Technical Review Handoff.md').write_text(handoff(result, preservation, report_dir, failure), encoding='utf-8')
     # Seal the complete owned cache/checkpoints and every report generation.

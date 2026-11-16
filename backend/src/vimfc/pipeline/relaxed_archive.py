@@ -18,7 +18,8 @@ from .integrity_registry import IntegrityRegistry, FORMAT, UNKNOWN, REFUSAL
 
 
 class ReadOnlyRegistry(IntegrityRegistry):
-    def __init__(self, path, archive):
+    def __init__(self, path, archive, artifact_resolver=None):
+        self.artifact_resolver = artifact_resolver
         self.path = Path(path).resolve()
         self.store = SimpleNamespace(db=archive.db)
         self.run_id = archive.context['run_id']
@@ -30,6 +31,21 @@ class ReadOnlyRegistry(IntegrityRegistry):
         self.db.row_factory = sqlite3.Row
         self.db.execute('BEGIN')
         self.observations = self.verify()
+
+    def _read_artifact(self, ref):
+        if self.artifact_resolver:
+            ref = {**ref, 'path': str(self.artifact_resolver(ref['path']))}
+        return super()._read_artifact(ref)
+
+    def _member(self, artifact, review_id):
+        if not self.artifact_resolver:
+            return super()._member(artifact, review_id)
+        from .quarantine import ReviewedIntegrityQuarantine
+        self._read_artifact(artifact)
+        gate = ReviewedIntegrityQuarantine.from_file(artifact['path'], self.run, resolve_path=self.artifact_resolver)
+        if review_id not in gate.review_ids:
+            raise Incompatible('Refusal component absent from reviewed approval')
+        return gate.members[review_id] if hasattr(gate, 'members') else gate
 
     def check(self, ref, review=None):
         for observation in self.observations.values():
@@ -43,7 +59,7 @@ class ReadOnlyRegistry(IntegrityRegistry):
 
 
 class CheckedArchive(Archive):
-    def __init__(self, context, registry_path=None):
+    def __init__(self, context, registry_path=None, *, artifact_resolver=None):
         super().__init__(context)
         self.registry = None
         self.resolution_cache = {}
@@ -53,7 +69,7 @@ class CheckedArchive(Archive):
             anchored = self.db.execute("SELECT 1 FROM run_events WHERE run_id=? AND stage='integrity_registry_anchor' LIMIT 1",
                                        (context['run_id'],)).fetchone()
             if anchored and registry_path is None: raise Incompatible('Anchored source requires the existing read-only registry')
-            if registry_path is not None: self.registry = ReadOnlyRegistry(registry_path, self)
+            if registry_path is not None: self.registry = ReadOnlyRegistry(registry_path, self, artifact_resolver)
         except BaseException:
             self.db.close()
             raise

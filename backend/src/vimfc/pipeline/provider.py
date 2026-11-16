@@ -19,7 +19,7 @@ from .runner import StageExecutor
 
 
 class HistoricalProvider:
-    def __init__(self,store,run_id,client,cache,*,identities=None,wikidata=None,reviewed_quarantine=None,integrity_registry=None):
+    def __init__(self,store,run_id,client,cache,*,identities=None,wikidata=None,reviewed_quarantine=None,integrity_registry=None,classification_required=True):
         from .quarantine import require_review
         require_review(store,run_id,reviewed_quarantine)
         if integrity_registry is None and store.db.execute("SELECT 1 FROM run_events WHERE run_id=? AND stage='integrity_registry_anchor' LIMIT 1",(run_id,)).fetchone():
@@ -38,11 +38,11 @@ class HistoricalProvider:
         self.source.reviewed_quarantine=reviewed_quarantine
         self.source.integrity_registry=integrity_registry
         self.identities=identities or HistoricalIdentities(self.source,self.run['snapshot'])
-        self.wikidata=wikidata or WikidataSource(self.source,self.run['snapshot'],self.config['classification'])
+        self.wikidata=(wikidata or WikidataSource(self.source,self.run['snapshot'],self.config['classification'])) if classification_required else None
         self.collector=CandidateCollector(client,self.identities,self.config)
         self.executor=StageExecutor(store,run_id,client=client)
         self._prepared={}
-        self.host_health=client.enable_wikidata_health(store) if hasattr(client,'enable_wikidata_health') else None
+        self.host_health=client.enable_wikidata_health(store) if classification_required and hasattr(client,'enable_wikidata_health') else None
 
     def preflight_deferred(self):
         if not self.host_health:return {'allowed':True,'probe_performed':False,'reason':'fixture_client_without_host_health'}

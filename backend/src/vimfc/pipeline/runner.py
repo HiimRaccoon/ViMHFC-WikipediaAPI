@@ -171,6 +171,12 @@ class PilotControls:
 
 
 class Builder:
+    @staticmethod
+    def annotation_collection(context, output, *, registry_path=None, target=20000):
+        """Explicit opt-in checked collection path; legacy run behavior is unchanged."""
+        from .annotation_builder import AnnotationCollectionBuilder
+        return AnnotationCollectionBuilder(context, output, registry_path=registry_path, target=target).run()
+
     def __init__(self,store,run_id,provider,reports='reports/pilots',*,progress=None,max_wait_seconds=0,retry_rounds=0,deferred_only=False,restore_completed=False,exploratory_progression=None):
         self.exploratory_progression=exploratory_progression
         if not 0<=max_wait_seconds<=3600 or not 0<=retry_rounds<=5:

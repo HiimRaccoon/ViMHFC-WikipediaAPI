@@ -230,7 +230,7 @@ def build_graph_report(relaxed, resolutions, *, prior_relaxed=None, diagnostic_t
             'ablations': {'diagnostic_target': diagnostic_target, 'reduced_capacity': ablations,
                           'warning': 'Reduced-capacity diagnostics are separate from the unchanged target-20000 selection. Retaining every eligible article cannot demonstrate a selection gain.'},
             'recovery': recovery or {}, 'api_requests': {'wikimedia': (recovery or {}).get('physical_attempts', 0),
-                                                       'groq': 0, 'other_llm': 0},
+                                                       'other_llm': 0},
             'human_quality': 'UNASSESSED', 'paths_are_claims': False}
 
 

@@ -2,6 +2,11 @@
 
 ## Article collection addendum (2026-11-15)
 
+- [x] 2026-11-16: wire `Builder.annotation_collection` and offline CLI with checked Wikipedia-only intake, relaxed quality, edge labels, selection, isolated checkpoint/resume and graph metrics. This supersedes the earlier pending-wiring item below. Real Pilot/production execution remains gated by the user's request.
+
+- [x] Fix missing-proof status reasons and manifest occurrence/proof bindings; reject unlabelled Builder inputs for annotation dispatch.
+- [ ] Wire checked relaxed intake and durable adapter-result checkpoint validation into an authorized Builder path before claiming end-to-end Pilot readiness. Classification is optional only in this collection path; legacy FR-012 remains unchanged. Candidate edges never supply verified evidence or human gold.
+
 - [x] Add opt-in `annotation-edge-1` and `rank-annotation-1` policy adapters; keep `quality-relaxed-1`, snapshot, old policies and source integrity unchanged.
 - [x] Distinguish candidate, verified, blocked and unresolved Lead links; rank candidate internal edges below verified ones, with selected-set paths and singleton fallback.
 - [ ] Run a separately authorized frozen-cohort Pilot and then assess full-inventory scaling before production collection/freeze. No Pilot or replay is authorized by this addendum.
@@ -532,42 +537,3 @@ The end-to-end research MVP is the real frozen corpus plus local human annotatio
 - [x] Independent790 replay/preservation, activation and one-shot recovery within5000 additional physical attempts, followed by985/985 offline/native pair replay and43282-file preservationPASS. Technical Review Handoff: `reports/verification/technical-review-handoff-integrity-registry-20261029.md`. Source/integrity/acceptance remain incomplete; no fourth approval, repeated recovery or Pilot10000/Production.
 - [x] Independent790/43282files prelivePASS; corrected postflight root association (registry provenance, not last completed progress), operator13PASS/independent35PASS. Exactcase3 activated append-only; old2components/receipts preserved.
 - [x] One new guarded recovery23279441-eafd-448b-80f8-67cc4304d973/native attempt0468b56b-5845-4a81-a7ba-036abc9cf5a2 completed processing loop, exit5:985processed162eligible13deferred2quarantines,2134newrequests/cumulative11204. No unknown4th mismatch/APIerrors/retries; data/integrity/acceptance stillfalse. No more source work authorized.
-
-## Groq-assisted classification, separate local experiment
-
-- [x] Official REST provider, secure dotenv, dynamically verified model selection, Vietnamese blind prompt/repository precedence, structural/evidence validation and separate label namespaces.
-- [x] Durable shared Groq ledger/reservations/cooldowns/process lease, HTTP-success replay after publication crash, no repeat of valid/terminal invalid response, bounded free-only smoke/progression.
-- [x] Read-only300-article dataset export and evaluation/human-review CSV+JSONL. Metadata correction version2 keeps original Discovery stratum separate from experiment bucket; initial output retained as intermediate, no inference used it.
-- [x] Final full offline705PASS (125newcontrols+580existing); corrected dataset-v2 manifest ece7a99e23bbd95488abd226e3cc83ff703e33fff23a01d5eaa8f1181ae2e161,300inputs/100peroutcome/65eligible controls;531trustedLeads and454auditedexclusions.
-- [x] Real CLI readiness `LIVE_NOT_RUN_MISSING_API_KEY` (api/.env0bytes, environmentkeyabsent),0authenticatedGroq/0Wikimedia requests/0predictions. Baseline-only evaluation and human-review templates exported; no Accuracy/F1claim. Historical46157files/21tables/90oldcorecodeconfig preservationPASS; handoff `reports/verification/groq-assisted-classification-handoff-20261029.md`.
-- [ ] Actual Free-account/model verification and smoke≤5→bounded300 after localcredentials exist; currentlyNOTRUN, no automatic/scheduledcontinuation. Human-gold evaluation/futureclassification-policy promotion/10k/Production remain separate decisions.
-
-### Free-tier confirmation amendment — 29/10/2026
-
-- [x] Replace mandatory evidence JSON/screenshot/image SHA256 with explicit `GROQ_FREE_TIER_CONFIRMED=true` from local dotenv/environment. Keep default request/token/rate/runtime caps and checkpoint/retry behavior.
-- [x] Nine new confirmation controls; focused Groq134PASS and full offline714PASS. Real preflight `278701e3-7cd8-40b3-a91b-4d762712e7aa` stopped `LIVE_NOT_RUN_MISSING_API_KEY`,0requests/0predictions. Confirmation is true, but no key assignment is present in the saved local env at execution.
-- [x] Smoke≤5 after credentials became readable: completed under the later tokenizer amendment below. This authorization does **not** permit300. Initial missing-key handoff remains `reports/verification/groq-free-confirmation-smoke-20261029.md`.
-
-### Qwen Free defaults and tokenized smoke continuation — 29/10/2026
-
-- [x] Apply published Qwen Free30RPM/1000RPD/8000TPM/200000TPD; observed provider headers can lower limits. Pin official CPU tokenizer/config and explicit embedded template; persist token estimates independently of actual usage, including schema/output reservation.
-- [x] RED/GREEN for defaults, estimator/tamper and temporary reset versus oversized request; exact-window timing fix. Focused142PASS and full722PASS/418.99s before live.
-- [x] Native smoke5PASS, invocation a2c62d8d-7019-4335-9c8b-dd813b4eb6e0: Mustamäe cached once,4new completions,5new physical attempts,0errors. New4092tokens; total5responses4792tokens; cumulative ledger8attempts. Source8files/21tables/88354rows and old ledger rows unchanged.
-- [x] Report `reports/verification/groq-tokenizer-smoke5-20261029.md`. No300/no source-policy mutation/no commit/push; semantic correctness and human evaluation remain unassessed.
-
-### Authorized Groq300 execution — 29/10/2026
-
-- [x] User explicitly authorized300distinct frozen dataset-v2 articles, blindQwen3.8 with cached5, unchanged prompt/schema/source. Authenticated preflight and cache-only smokePASS; native prefixes50/100/150 complete, prefix200paused.
-- [x] Execute finite cumulative310attempt/600000token budgets including old8attempts/4792tokens, unchanged Free30/1000/8000/200000 and1800s envelope. Actual stop day_rate_limit at179responses/151predictions/28abstentions/0invalid/121pending, exit5,1735.11s. No extra invocation or scheduled next-day work.
-- [x] New174completions+6model lookups=180HTTPattempts/194527actual tokens; cumulative188attempts/199319charged tokens. Remaining122attempts/400681experiment tokens; local day681tokens cannot fit next1163reservation. No duplicate successful requests.
-- [x] Three-view/reference-only evaluation, per-group/reason/stratum outputs, full and blind300human-review exports with blank gold, two exact historical priority cards. Reference agreement76/81is not human accuracy;70suggestions for baselineunknown remain unverified.
-- [x] Fresh145targeted controls plus supplemental4tests (overlap); unchanged product full722PASS remains prior acceptance evidence. Source8files/21tables/88354rows, alloldledgerrows and46196historical files preserved. No source/corpus/registry writes, no commit/push. Handoff `reports/verification/groq300-technical-review-handoff-20261029.md`.
-- [ ] Remaining121inferences require later explicit manual resume with existing config/ledger and sufficient quota.122remainingrequests cover121completions+1model lookup with0retry/probe headroom; no budget resets. Human gold/adjudication and production promotion remain unassessed/out of scope.
-
-### Human Review Preparation — 30/10/2026
-
-- [x] New offline review tools select11from179existing responses:8purposive diagnostics (all5disagreements,2priority cases,1additionalScience probe) +3seeded conditional stratum draws (one per baseline outcome; unresolveddependency-missing quota). Frozen seed20261030/manifest d33cb23c625450bc581dea8279288fc691fcc53beafe125f54ac2690b4f44c66.
-- [x] BLIND editableCSV/JSONL with source title/Lead/all sentenceIDs and empty human fields; machine labels/strata/partitions kept only in coordinator comparison/manifest. Same inputs/order/selection reproducible; no source dataset regeneration.
-- [x] Import requires pinned manifest, immutable source identity, valid human reviewer/date and exactly one group/uncertain/out-of-taxonomy decision. Report A/B/C separately bydiagnostic/random partition; uncertainty excluded from gold, OOTbehavior separate, no population accuracy claim or source promotion.
-- [x] RED/GREEN including strict bool-versus-integer sentenceidentity. Focused159PASS; final full739PASS/327.95s. Actual blank import AWAITING_HUMAN_LABELS/0reviewed/metricsnull. Source12files/21tables/88354rows and APIledger179results/188attempts unchanged;0newAPI,121pendingnotresumed. Handoff `reports/verification/groq-human-review-preparation-20261030.md`.
-- [ ] Actual human labeling/adjudication and subsequent scoped metrics await user-provided labels; do not generate gold, resume Groq, or promote classification automatically.

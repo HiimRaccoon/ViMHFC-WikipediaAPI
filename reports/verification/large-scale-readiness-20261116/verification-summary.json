@@ -1,0 +1,15 @@
+{
+  "focused_tests": 119,
+  "focused_exit_code": 0,
+  "full_offline_tests": 774,
+  "full_offline_exit_code": 0,
+  "bash_syntax_exit_code": 0,
+  "source_binding_matched": true,
+  "runtime_manifest_verified": true,
+  "server_contacted": false,
+  "live_wikimedia_requests": 0,
+  "llm_requests": 0,
+  "additional_pilots_run": 0,
+  "qwen_fallback": "NOT_NEEDED",
+  "pilot10000_readiness": "CONDITIONAL_DEPLOYMENT_PENDING"
+}

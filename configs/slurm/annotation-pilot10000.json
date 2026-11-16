@@ -1,0 +1,17 @@
+{
+  "snapshot": "2026-10-25T03:00:00Z",
+  "inventory_candidates": 100000,
+  "pilot_candidate_prefix": 10000,
+  "corpus_target": 20000,
+  "batch_size": 250,
+  "physical_requests_per_batch": 1000,
+  "suggested_review_ceiling_pilot_requests": 40000,
+  "suggested_review_ceiling_full_inventory_requests": 400000,
+  "quality_policy": "quality-relaxed-1",
+  "edge_policy": "annotation-edge-1",
+  "rank_policy": "rank-annotation-1",
+  "claim_distribution": {"SUPPORTED": 900, "REFUTED": 900, "NEI": 200},
+  "gpu_required": false,
+  "qwen_fallback": "NOT_NEEDED",
+  "deployment_status": "PREPARATION_ONLY_REQUIRES_REVIEW"
+}

@@ -47,21 +47,27 @@ def classify_links(articles, archive, recovery=None):
                     target = archive.resolve(title)
                     if target.get('status') == 'resolved':
                         if (target.get('snapshot') != archive.context['snapshot']
-                                or type(target.get('page_id')) is not int or target['page_id'] <= 0
-                                or not target.get('revision_id') or not target.get('raw_hash')
-                                or not target.get('proof')):
-                            raise Incompatible('Checked target proof is incomplete')
+                                or type(target.get('page_id')) is not int or target['page_id'] <= 0):
+                            raise Incompatible('Checked target identity/snapshot differs')
+                        if not target.get('revision_id') or not target.get('raw_hash') or not target.get('proof'):
+                            raise SourceUnavailable('Checked target evidence missing', code='graph_proof_missing')
                         state = 'CANDIDATE_EDGE'
                     else:
                         reason = target.get('reason', 'target_unresolved')
                 except (Incompatible, ValueError, KeyError, TypeError) as error:
-                    state, target, reason = 'BLOCKED_EDGE', {'status': 'unresolved'}, str(error)
+                    reason = str(error)
+                    missing = reason in {'Missing historical move horizon', 'Pinned historical move index missing'}
+                    state, target = ('UNRESOLVED' if missing else 'BLOCKED_EDGE'), {'status': 'unresolved'}
+                    if missing:
+                        reason = 'MISSING_PROOF: ' + reason
                 except SourceUnavailable as error:
                     reason = error.code
                     if any(part in error.code for part in ('integrity', 'hash_mismatch',
                                                              'namespace', 'snapshot', 'cutoff')):
                         state = 'BLOCKED_EDGE'
                     target = {'status': 'unresolved'}
+            if state == 'UNRESOLVED' and reason and ('proof' in reason.lower() or 'coverage' in reason.lower()):
+                reason = reason if reason.startswith('MISSING_PROOF:') else 'MISSING_PROOF: ' + reason
             if state == 'CANDIDATE_EDGE' and recovery is not None:
                 decision = recovery.resolve(title, pool_ids, allow_live=False)
                 certified = decision.get('target') or {}
@@ -75,6 +81,12 @@ def classify_links(articles, archive, recovery=None):
                     state = 'VERIFIED_EDGE'
                 elif decision.get('state') == 'SOURCE_INTEGRITY_BLOCKED':
                     state, target, reason = 'BLOCKED_EDGE', {'status': 'unresolved'}, decision.get('reason')
+                elif decision.get('state') in {'RESOLVED_VALID', 'RESOLVED_OUTSIDE_COHORT', 'AMBIGUOUS'}:
+                    state, target, reason = 'BLOCKED_EDGE', {'status': 'unresolved'}, 'contradictory_strict_target'
+                else:
+                    reason = 'MISSING_PROOF: historical_ownership'
+            elif state == 'CANDIDATE_EDGE':
+                reason = 'MISSING_PROOF: historical_ownership'
             link['target'], link['edge_status'] = target, state
             link['edge_policy'] = VERSION
             link['edge_reason'] = reason
@@ -87,6 +99,11 @@ def rankable_links(articles):
     records = [{**a, 'extraction': {**a['extraction'],
                 'links': list(a['extraction']['links'])}} for a in articles]
     for article in records:
+        if article.get('quality', {}).get('quality_version') != 'quality-relaxed-1':
+            raise Incompatible('rank-annotation-1 requires checked relaxed collection records')
+        if any(link.get('edge_policy') != VERSION or link.get('edge_status') not in EDGE_STATES
+               for link in article['extraction']['links']):
+            raise Incompatible('Annotation ranking requires explicit edge-policy labels; run collection adapter first')
         article['extraction']['links'] = [link for link in article['extraction']['links']
             if link.get('edge_status') in {'VERIFIED_EDGE', 'CANDIDATE_EDGE'}
             and link.get('edge_policy') == VERSION
@@ -123,24 +140,28 @@ def edge_report(articles):
             'candidate_is_verified_evidence': False}
 
 
-def select_articles(articles, archive, quotas, *, target=20000, recovery=None):
+def select_articles(articles, archive, quotas, *, target=20000, recovery=None, structural_graph=None):
     """Select any checked candidate pool; upstream checkpoints remain unchanged."""
     from .select import select_corpus
+    if structural_graph is not None:
+        from .wikigraph import select_structural
+        return select_structural(articles, archive, quotas, target, structural_graph)
     records, _ = classify_links(articles, archive, recovery)
     selection = select_corpus(records, [], {'version': RANK_VERSION}, quotas, target)
     edges = edge_report(records)
-    manifest = {'version': 'annotation-collection-1', 'snapshot': archive.context['snapshot'],
+    manifest = {'version': 'annotation-collection-2', 'snapshot': archive.context['snapshot'],
                 'source_run_id': archive.context.get('run_id'),
                 'source_config_hash': archive.context.get('config_hash'),
                 'quality_policy': 'quality-relaxed-1', 'edge_policy': VERSION,
                 'ranking_policy': RANK_VERSION, 'target': target,
-                'selected_page_ids': selection.page_ids,
+                'selected_page_ids': selection.page_ids, 'quotas': quotas,
                 'input_digest': digest([(a['page_id'], a['revision_id'], a['raw_hash'],
                     a['source_validation']['manifest_id'], a['classification'].get('primary_entity_type'),
                     a['classification'].get('subtypes', []),
-                    a['quality']['eligible'], a['quality']['score'],
-                    [(l['edge_status'], l['target'].get('page_id'), l['target'].get('revision_id'),
-                      l['target'].get('raw_hash'), digest(l['target'].get('proof')))
+                    a['classification'], a['quality']['eligible'], a['quality']['score'],
+                    [(a['page_id'], a['revision_id'], l.get('target_title'), l.get('scope'),
+                      l.get('sent_id'), l.get('paragraph_id'), l.get('start'), l.get('end'),
+                      l['edge_status'], l.get('edge_reason'), l['target'])
                      for l in a['extraction']['links']])
                     for a in sorted(records, key=lambda a: a['page_id'])])}
     manifest['manifest_id'] = digest(manifest)

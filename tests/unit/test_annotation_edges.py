@@ -103,3 +103,40 @@ def test_collection_entrypoint_uses_entire_supplied_pool_and_versions_result():
     assert result['manifest']['input_digest'] == select_articles(list(reversed(pool)), archive, {}, target=3)['manifest']['input_digest']
     with pytest.raises(Incompatible):
         select_articles(pool + [pool[0]], archive, {}, target=3)
+
+
+@pytest.mark.parametrize('field,value', [('target_title', 'Alias2'), ('scope', 'body'),
+    ('sent_id', 2), ('paragraph_id', 3), ('start', 10), ('end', 20)])
+def test_manifest_binds_literal_occurrence(field, value):
+    archive = SimpleNamespace(context={'snapshot': SNAP}, resolve=lambda _: target(2))
+    rows = [article(1, ['Alias']), article(2)]
+    before = select_articles(rows, archive, {}, target=2)['manifest']
+    rows[0]['extraction']['links'][0][field] = value
+    after = select_articles(rows, archive, {}, target=2)['manifest']
+    assert before['input_digest'] != after['input_digest']
+    assert before['version'] == after['version'] == 'annotation-collection-2'
+
+
+def test_missing_move_index_is_missing_proof_not_integrity_block():
+    def resolve(_):
+        raise Incompatible('Pinned historical move index missing')
+    rows, _ = classify_links([article(1, ['Alias'])], SimpleNamespace(context={'snapshot': SNAP}, resolve=resolve))
+    link = rows[0]['extraction']['links'][0]
+    assert link['edge_status'] == 'UNRESOLVED'
+    assert link['edge_reason'].startswith('MISSING_PROOF:')
+
+
+def test_corrupt_redirect_stays_blocked_and_missing_ownership_stays_candidate():
+    def resolve(title):
+        if title == 'Bad':
+            raise Incompatible('Redirect target lacks historical raw proof')
+        return target(2)
+    rows, _ = classify_links([article(1, ['Bad', 'Good'])], SimpleNamespace(context={'snapshot': SNAP}, resolve=resolve))
+    bad, good = rows[0]['extraction']['links']
+    assert bad['edge_status'] == 'BLOCKED_EDGE'
+    assert good['edge_status'] == 'CANDIDATE_EDGE' and good['edge_reason'].startswith('MISSING_PROOF:')
+
+
+def test_builder_unlabelled_input_cannot_silently_drop_all_edges():
+    with pytest.raises(Incompatible, match='adapter first'):
+        select_corpus([article(1, ['Alias'])], [], {'version': 'rank-annotation-1'}, {}, 1)
