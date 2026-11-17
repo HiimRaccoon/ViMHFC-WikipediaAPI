@@ -241,14 +241,27 @@ def verify_generation(root, *, trusted, bundle, compatible):
     return {'verified': True, 'generation_id': identity['generation_id'], **checkpoint}
 
 
-def snapshot(source, output, *, bundle, identity, runtime, stopped_writer=False, synthetic=False):
+def separate_destination(output, protected):
+    # Inspect lexical ancestors before resolving so links cannot hide an input alias.
+    require_local(output)
+    output = Path(output).resolve()
+    for root in protected:
+        require_local(root)
+        root = Path(root).resolve()
+        if output.is_relative_to(root) or root.is_relative_to(output):
+            raise Incompatible('Fresh separate output required: protected input overlap')
+    if output.exists():
+        raise Incompatible('Fresh separate output required')
+    return output
+
+
+def snapshot(source, output, *, bundle, identity, runtime, stopped_writer=False, synthetic=False,
+             protected_inputs=()):
     if not stopped_writer or not synthetic:
         raise Incompatible('Explicit synthetic stopped-writer boundary required')
     require_local(source)
-    source, output = Path(source).resolve(), Path(output).absolute()
-    for path in (source, output, bundle): require_local(path)
-    if output.exists() or output.is_relative_to(source) or source.is_relative_to(output):
-        raise Incompatible('Fresh separate output required')
+    output = separate_destination(output, (source, bundle, *protected_inputs))
+    source = Path(source).resolve()
     before = inventory(source)
     no_sidecars(source / 'pipeline.sqlite')
     output.mkdir(parents=True)
@@ -281,11 +294,11 @@ def snapshot(source, output, *, bundle, identity, runtime, stopped_writer=False,
     return {'trusted':trusted, 'compatible':compat, 'receipt':receipt}
 
 
-def restore(generation, output, *, trusted, bundle, compatible, synthetic=False):
+def restore(generation, output, *, trusted, bundle, compatible, synthetic=False,
+            protected_inputs=()):
     if not synthetic: raise Incompatible('Synthetic restore only')
+    output = separate_destination(output, (generation, bundle, *protected_inputs))
     verify_generation(generation, trusted=trusted, bundle=bundle, compatible=compatible)
-    output = Path(output); require_local(output)
-    if output.exists(): raise Incompatible('Fresh restore directory required')
     shutil.copytree(generation, output)
     return verify_generation(output, trusted=trusted, bundle=bundle, compatible=compatible)
 
