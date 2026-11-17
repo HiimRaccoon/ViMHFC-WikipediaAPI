@@ -156,3 +156,64 @@ def test_manifest_structure(tmp_path, workspace, fault):
     with pytest.raises(Incompatible):
         s.verify_generation(generation, trusted=trusted, compatible=result['compatible'], bundle=bundle)
 
+
+@pytest.mark.parametrize('operation', ['snapshot', 'restore'])
+@pytest.mark.parametrize('tree', ['source', 'bundle', 'explicit'])
+@pytest.mark.parametrize('relation', ['nested', 'dotdot', 'ancestor', 'same'])
+def test_destination_overlap_rejected_before_io(tmp_path, workspace, monkeypatch,
+                                                operation, tree, relation):
+    bundle, work, identity = workspace
+    generation, result = capture(tmp_path, workspace)
+    explicit = tmp_path / 'protected'
+    explicit.mkdir()
+    (explicit / 'sentinel').write_bytes(b'protected input')
+    source = work if operation == 'snapshot' else generation
+    root = {'source': source, 'bundle': bundle, 'explicit': explicit}[tree]
+    output = {'nested': root / 'new-parent/output',
+              'dotdot': root / '../' / root.name / 'new-parent/output',
+              'ancestor': root.parent, 'same': root}[relation]
+    # Include manifests as protected bytes (inventory deliberately omits them).
+    before = {p: p.read_bytes() for r in (work, bundle, generation, explicit)
+              for p in r.rglob('*') if p.is_file()}
+    before_paths = set(tmp_path.rglob('*'))
+    monkeypatch.setattr(s, 'verify_workspace', lambda *a: pytest.fail('Input audit before destination rejection'))
+    monkeypatch.setattr(s, 'verify_generation', lambda *a, **k: pytest.fail('Generation opened before destination rejection'))
+    monkeypatch.setattr(s.shutil, 'copytree', lambda *a, **k: pytest.fail('Unsafe copy'))
+    with pytest.raises(Incompatible, match='separate'):
+        if operation == 'snapshot':
+            s.snapshot(work, output, bundle=bundle, identity=identity, runtime='fixture',
+                       synthetic=True, stopped_writer=True, protected_inputs=(explicit,))
+        else:
+            s.restore(generation, output, bundle=bundle, trusted=result['trusted'],
+                      compatible=result['compatible'], synthetic=True, protected_inputs=(explicit,))
+    assert set(tmp_path.rglob('*')) == before_paths
+    assert all(p.read_bytes() == value for p, value in before.items())
+
+
+@pytest.mark.parametrize('kind', ['symlink', 'junction'])
+def test_destination_link_alias_rejected(tmp_path, workspace, kind):
+    import os
+    import subprocess
+    bundle, work, identity = workspace
+    alias = tmp_path / 'alias'
+    if kind == 'junction':
+        if os.name != 'nt': pytest.skip('Windows junction fixture')
+        subprocess.run(['cmd', '/c', 'mklink', '/J', str(alias), str(bundle)], check=True,
+                       capture_output=True)
+    else:
+        try: alias.symlink_to(bundle, target_is_directory=True)
+        except OSError: pytest.skip('Symlink privilege unavailable')
+    before = s.inventory(bundle)
+    try:
+        with pytest.raises(Incompatible, match='Symlink/junction'):
+            s.snapshot(work, alias / 'new/output', bundle=bundle, identity=identity,
+                       runtime='fixture', synthetic=True, stopped_writer=True)
+        with pytest.raises(Incompatible, match='Symlink/junction'):
+            s.restore(work, alias / 'new/output', bundle=bundle, trusted={},
+                      compatible={}, synthetic=True)
+        assert s.inventory(bundle) == before
+        assert not (bundle / 'new').exists()
+    finally:
+        if kind == 'junction': alias.rmdir()
+        else: alias.unlink()
+
