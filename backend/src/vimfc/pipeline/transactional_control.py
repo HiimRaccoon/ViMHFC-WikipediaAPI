@@ -64,6 +64,8 @@ class SQLiteWitness:
 
 class _Contract(SyntheticAuthority):
     def _apply(self, state, action, payload):
+        if action == 'activate':
+            return super()._apply(state, 'launch', {'reservation_id': payload['reservation_id']})
         if action != 'dispatch':
             return super()._apply(state, action, payload)
         reservation_id, units = payload['reservation_id'], payload['units']
@@ -139,7 +141,7 @@ class TransactionalAuthority:
                 self.witness.acknowledge(self.genesis, model.records[-1])
 
     def decide(self, decision_id, expected_version, action, payload):
-        require(action not in ('launch', 'dispatch', 'reconcile'), 'Use the appropriate control boundary')
+        require(action not in ('launch', 'activate', 'dispatch', 'reconcile'), 'Use the appropriate control boundary')
         record, _ = self._decide(decision_id, expected_version, action, payload)
         return record
 
@@ -174,6 +176,11 @@ class TransactionalAuthority:
 
     def launch(self, decision_id, expected_version, *, attempt, epoch, job,
                reservation_id, ttl, mock_transport):
+        return self._launch(decision_id, expected_version, attempt=attempt, epoch=epoch, job=job,
+                            reservation_id=reservation_id, ttl=ttl, mock_transport=mock_transport)
+
+    def _launch(self, decision_id, expected_version, *, attempt, epoch, job,
+                reservation_id, ttl, mock_transport, activation=None, check=_noop):
         name(attempt)
         name(job)
         name(reservation_id)
@@ -182,9 +189,16 @@ class TransactionalAuthority:
                 and callable(mock_transport), 'Invalid mock worker configuration')
         identity = (attempt, epoch, job)
         deadline = monotonic() + ttl
-        record, fresh = self._decide(decision_id, expected_version, 'launch',
-                                     {'reservation_id': reservation_id},
-                                     lambda model: self._owned(model, identity, 'CLAIMED'))
+
+        def validate(model):
+            self._owned(model, identity, 'CLAIMED')
+            check(model)
+
+        payload = {'reservation_id': reservation_id}
+        if activation is not None:
+            payload['activation'] = activation
+        record, fresh = self._decide(decision_id, expected_version,
+                                     'launch' if activation is None else 'activate', payload, validate)
         require(fresh, 'Launch already used')
         launch_digest = digest(record)
         owner = record['state']['owner']
