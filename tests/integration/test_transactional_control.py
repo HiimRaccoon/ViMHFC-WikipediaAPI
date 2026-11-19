@@ -1,15 +1,18 @@
 """Local fixtures and hard process exits at transaction and mock gate boundaries."""
+import json
 import os
 import shutil
 import sqlite3
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 from pathlib import Path
+from threading import Event
 
 import pytest
 
-from vimfc.domain import Incompatible
+from vimfc.domain import Incompatible, digest
 from vimfc.pipeline import transactional_control as control
 
 
@@ -113,7 +116,9 @@ def test_interrupted_launch_cannot_reissue_worker(ready, tmp_path, point):
     assert not (tmp_path / 'mock-calls').exists()
 
 
-@pytest.mark.parametrize('point,calls', [('after_commit', ''), ('before_dispatch', ''), ('after_dispatch', '2\n')])
+@pytest.mark.parametrize('point,calls', [
+    ('after_commit', ''), ('before_dispatch', ''), ('after_dispatch_admission', ''), ('after_dispatch', '2\n'),
+])
 def test_interrupted_dispatch_is_charged_without_retry(ready, tmp_path, point, calls):
     ready.decide('reserve', 2, 'reserve', RESERVATION)
     crash(tmp_path, 'request', point)
@@ -172,6 +177,105 @@ def test_witness_loss_after_dispatch_ack_prevents_transport(ready):
     assert a.inspect()['state']['spent'] == {'res': 1}
     with pytest.raises(Incompatible, match='already used'):
         worker('request', 4, 1)
+
+
+def test_blocked_transport_releases_lock_and_grant_cannot_be_reused(ready, tmp_path):
+    a = ready
+    a.decide('reserve', 2, 'reserve', RESERVATION)
+    started, release = Event(), Event()
+    calls = []
+
+    def transport(units):
+        calls.append(units)
+        started.set()
+        assert release.wait(15)
+        return 'delivered'
+
+    worker = launch(a, transport)
+    other = opened(tmp_path)
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        request = pool.submit(worker, 'request', 4, 2)
+        try:
+            assert started.wait(10)
+            with closing(sqlite3.connect(a.path)) as db:
+                launch_record, grant = [json.loads(row[0]) for row in db.execute(
+                    'SELECT body FROM records WHERE version IN (4, 5) ORDER BY version')]
+            assert other.witness.read(other.genesis) == (5, digest(grant), None)
+            assert grant['decision_id'] == 'request' and grant['action'] == 'dispatch'
+            assert grant['payload'] == dict(owner=dict(OWNER, operator='op', state='RUNNING'),
+                                            launch_digest=digest(launch_record),
+                                            reservation_id='res', allowance=3, units=2)
+            with pytest.raises(Incompatible, match='already used'):
+                worker('request', 4, 2)
+            other.decide('stop', 5, 'stop', {})
+            assert not request.done()
+            with pytest.raises(Incompatible, match='Invalid worker owner'):
+                worker('new-request', 6, 1)
+            assert other.inspect()['state']['spent'] == {'res': 2}
+            assert calls == [2]
+        finally:
+            release.set()
+        assert request.result(timeout=5) == 'delivered'
+
+
+@pytest.mark.parametrize('point,calls', [('before_dispatch', []), ('after_dispatch_admission', [2])])
+def test_stop_orders_against_admission(ready, tmp_path, point, calls):
+    a = ready
+    actual = []
+    a.decide('reserve', 2, 'reserve', RESERVATION)
+    worker = launch(a, actual.append)
+    other = opened(tmp_path)
+
+    def stop(current):
+        if current == point:
+            other.decide('stop', 5, 'stop', {})
+
+    a.checkpoint = stop
+    if point == 'before_dispatch':
+        with pytest.raises(Incompatible, match='Invalid worker owner'):
+            worker('request', 4, 2)
+    else:
+        worker('request', 4, 2)
+    with pytest.raises(Incompatible, match='Invalid worker owner'):
+        worker('later', 6, 1)
+    assert actual == calls
+    assert other.inspect()['state']['spent'] == {'res': 2}
+
+
+def test_timeout_keeps_charge_and_denies_replay(ready, tmp_path):
+    a = ready
+    calls = []
+    a.decide('reserve', 2, 'reserve', RESERVATION)
+
+    def transport(units):
+        calls.append(units)
+        raise TimeoutError('Unknown delivery')
+
+    worker = launch(a, transport)
+    with pytest.raises(TimeoutError, match='Unknown delivery'):
+        worker('request', 4, 2)
+    with pytest.raises(Incompatible, match='already used'):
+        worker('request', 4, 2)
+    with pytest.raises(Incompatible, match='exhausted'):
+        worker('over-allowance', 5, 2)
+    assert opened(tmp_path).inspect()['state']['spent'] == {'res': 2}
+    assert calls == [2]
+
+
+def test_expiry_between_charge_and_admission_keeps_charge(ready, monkeypatch):
+    a = ready
+    a.decide('reserve', 2, 'reserve', RESERVATION)
+    monkeypatch.setattr(control, 'monotonic', lambda: 1)
+    worker = launch(a, pytest.fail)
+
+    def expire(point):
+        if point == 'before_dispatch':
+            monkeypatch.setattr(control, 'monotonic', lambda: 61)
+
+    a.checkpoint = expire
+    with pytest.raises(Incompatible, match='expired'):
+        worker('request', 4, 2)
+    assert a.inspect()['state']['spent'] == {'res': 2}
 
 
 @pytest.mark.parametrize('rollback', ['authority', 'witness'])
