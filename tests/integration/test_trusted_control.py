@@ -3,8 +3,8 @@ from copy import deepcopy
 
 import pytest
 
-from vimfc.domain import Incompatible
-from vimfc.pipeline.trusted_control import FakeWitness, SyntheticAuthority
+from vimfc.domain import Incompatible, digest
+from vimfc.pipeline.trusted_control import FakeWitness, SyntheticAuthority, SyntheticOwnership
 
 
 @pytest.fixture
@@ -191,4 +191,155 @@ def test_historical_generation_id_cannot_be_reused(model):
     prior = a.inspect()['state']['current']
     reused = target(); reused['identity'].update(attempt_id='c', epoch_id='3'); reused['parent_generation'] = 'g2'
     with pytest.raises(Incompatible): decision(a, 'authorize_generation', {'target': reused, 'expected_pointer': prior})
+
+
+@pytest.mark.parametrize('corruption', ['missing', 'extra', 'version', 'boolean_version', 'action', 'payload'])
+def test_corrupt_decision_index_fails_closed(model, corruption):
+    a, _ = model
+    original = initialize(a)
+    if corruption == 'missing': a.decisions.clear()
+    elif corruption == 'extra': a.decisions['extra'] = deepcopy(a.decisions['0'])
+    elif corruption == 'version': a.decisions['0']['expected_version'] = 1
+    elif corruption == 'boolean_version': a.decisions['0']['expected_version'] = False
+    elif corruption == 'action': a.decisions['0']['action'] = 'unknown'
+    else: a.decisions['0']['payload'] = {'reason': 'altered'}
+    assert a.inspect()['status'] == 'AUTHORITY_UNVERIFIED'
+    with pytest.raises(Incompatible): a.store(original)
+    with pytest.raises(Incompatible): a.propose('0', 1, 'claim', {'operator': 'op', 'job': 'j', 'attempt': 'a', 'epoch': 1, 'fencing_evidence': 'proof'})
+    with pytest.raises(Incompatible): a.acknowledge()
+
+
+def test_duplicate_history_rejected_even_with_matching_witness(model):
+    a, witness = model
+    initialize(a); claim(a)
+    a.records[1]['decision_id'] = a.records[0]['decision_id']
+    a.record_digests[1] = digest(a.records[1])
+    witness.head = (2, a.record_digests[1])
+    a.decisions.clear()
+    assert a.inspect()['status'] == 'AUTHORITY_UNVERIFIED'
+    with pytest.raises(Incompatible): a.propose('new', 2, 'unknown', {'reason': 'unsafe'})
+
+
+def test_valid_replay_after_later_decision_and_altered_replay(model):
+    a, _ = model
+    first = initialize(a); claim(a)
+    assert a.store(first) == first
+    with pytest.raises(Incompatible): a.propose('0', 0, 'initialize', {'extra': True})
+    assert a.inspect()['eligible']
+def ownership(a, attempt='a', epoch=1, job='job'):
+    return SyntheticOwnership(a, attempt=attempt, epoch=epoch, job=job)
+
+
+def test_orchestrated_budget_and_owner_lifecycle(model):
+    a, _ = model
+    initialize(a)
+    owner = ownership(a)
+    owner.claim(operator='op', fencing_evidence='fixture')
+    for stale in (ownership(a, attempt='wrong'), ownership(a, epoch=2), ownership(a, job='wrong')):
+        with pytest.raises(Incompatible):
+            stale.reserve('r1', 5)
+    with pytest.raises(Incompatible):
+        owner.release()
+    owner.reserve('r1', 5)
+    with pytest.raises(Incompatible):
+        owner.reserve('other', 1)
+    worker = owner.launch('r1')
+    with pytest.raises(Incompatible):
+        ownership(a).launch('r1')
+    for invalid in (0, -1, True, 6):
+        with pytest.raises(Incompatible):
+            worker(invalid)
+    assert worker(2) == 3
+    owner.stop(terminated=True)
+    owner.release()
+    next_owner = ownership(a, 'b', 2, 'next')
+    next_owner.claim(operator='op', fencing_evidence='fixture')
+    with pytest.raises(Incompatible):
+        owner.reserve('stale', 1)
+    with pytest.raises(Incompatible):
+        worker(1)
+    with pytest.raises(Incompatible):
+        next_owner.reserve('r1', 3)
+    with pytest.raises(Incompatible):
+        next_owner.reserve('r2', 4)
+    next_owner.reserve('r2', 3)
+    consume = next_owner.launch('r2')
+    assert consume(3) == 0
+    with pytest.raises(Incompatible):
+        consume(1)
+    state = a.inspect()['state']
+    assert state['allocated'] == state['historical_debit'] + sum(
+        row['allowance'] for row in state['reservations'].values()) == state['ceiling']
+
+
+@pytest.mark.parametrize('operation', ['reserve', 'launch'])
+@pytest.mark.parametrize('boundary', ['before_store', 'after_store', 'after_ack'])
+def test_orchestration_interruptions(model, monkeypatch, operation, boundary):
+    a, _ = model
+    initialize(a)
+    owner = ownership(a)
+    owner.claim(operator='op', fencing_evidence='fixture')
+    if operation == 'launch':
+        owner.reserve('r', 4)
+    method = 'store' if boundary == 'before_store' else 'acknowledge'
+    original = getattr(a, method)
+
+    def interrupt(*args):
+        if boundary == 'after_ack':
+            original(*args)
+        raise RuntimeError('synthetic interruption')
+
+    args = ('r', 4) if operation == 'reserve' else ('r',)
+    with monkeypatch.context() as patch:
+        patch.setattr(a, method, interrupt)
+        with pytest.raises(RuntimeError, match='synthetic interruption'):
+            getattr(owner, operation)(*args)
+    if boundary == 'after_store':
+        assert a.status() == 'PENDING_ACKNOWLEDGMENT'
+        with pytest.raises(Incompatible):
+            owner.launch('r')
+        a.acknowledge()
+
+    state = a.inspect()['state']
+    if boundary == 'before_store':
+        assert state['owner']['state'] == 'CLAIMED'
+        assert state['allocated'] == (6 if operation == 'launch' else 2)
+        return
+    assert state['allocated'] == 6
+    with pytest.raises(Incompatible):
+        getattr(ownership(a), operation)(*args)
+    assert state['reservations']['r']['launched'] == (operation == 'launch')
+
+
+def test_orchestration_lost_scratch_witness_and_rollback(model):
+    a, witness = model
+    initialize(a)
+    owner = ownership(a)
+    owner.claim(operator='op', fencing_evidence='fixture')
+    owner.reserve('r', 4)
+    witness.available = False
+    with pytest.raises(Incompatible):
+        owner.launch('r')
+    witness.available = True
+    worker = owner.launch('r')
+    assert worker(1) == 3
+    witness.available = False
+    with pytest.raises(Incompatible):
+        worker(1)
+    witness.available = True
+    owner.stop(terminated=False)
+    assert a.inspect()['state']['allocated'] == 6
+    assert a.inspect()['state']['owner']['state'] == 'OWNER_UNKNOWN'
+    for operation in (owner.release, lambda: worker(1), lambda: owner.launch('r'),
+                      lambda: ownership(a, 'b', 2).claim(operator='op', fencing_evidence='fixture')):
+        with pytest.raises(Incompatible):
+            operation()
+
+    record = a.records.pop()
+    a.record_digests.pop()
+    del a.decisions[record['decision_id']]
+    assert a.status() == 'AUTHORITY_UNVERIFIED'
+    with pytest.raises(Incompatible):
+        worker(1)
+
 
