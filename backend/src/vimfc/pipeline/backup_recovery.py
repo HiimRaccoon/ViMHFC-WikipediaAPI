@@ -58,12 +58,12 @@ def _copy(source, output, manifest, fault):
 
 
 def transfer_backup(source, output, *, expected_current, expected_previous=None,
-                    synthetic=False, fault=_noop):
+                    protected_inputs=(), synthetic=False, fault=_noop):
     """Copy a verified publication into a fresh fixture, committing its pointer last."""
     require(synthetic is True, 'Explicit synthetic backup required')
     targets = _targets(expected_current, expected_previous)
     source = Path(source)
-    output = snapshot.separate_destination(output, (source,))
+    output = snapshot.separate_destination(output, (source, *protected_inputs))
     manifests = _pair(source, targets)
     output.mkdir(parents=True)
     for target, manifest in zip(targets, manifests):
@@ -97,18 +97,17 @@ def _check_authority(authority, targets, compatible):
 
 
 def restore_backup(source, output, *, expected_current, compatible, bundle, authority,
-                   expected_previous=None, synthetic=False, fault=_noop):
+                   expected_previous=None, protected_inputs=(), synthetic=False, fault=_noop):
     """Verify the copy before any SQLite access. Never adopt or reactivate it."""
     require(synthetic is True, 'Explicit synthetic restore required')
     targets = _targets(expected_current, expected_previous)
     compatible = deepcopy(compatible)
     source = Path(source)
     control_paths = (authority.path, authority.witness.path)
+    output = snapshot.separate_destination(output, (source, bundle, *control_paths, *protected_inputs))
     for path in (*control_paths, Path(bundle)):
-        snapshot.require_local(path)
         require(not path.resolve().is_relative_to(source.resolve()),
                 'Local validation input overlaps backup source')
-    output = snapshot.separate_destination(output, (source, bundle, *control_paths))
     manifest = _pair(source, targets)[0]
     require(manifest['compatibility'] == compatible and set(compatible) == {'runtime', 'schema_hash', 'user_version'}
             and bool(compatible['runtime']) and type(compatible['runtime']) is str
