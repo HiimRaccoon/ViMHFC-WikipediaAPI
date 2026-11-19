@@ -72,10 +72,12 @@ class _Contract(SyntheticAuthority):
         require(owner['state'] == 'RUNNING' and reservation is not None
                 and reservation['launched'] and reservation['attempt'] == owner['attempt'],
                 'Invalid request reservation')
+        require(payload['owner'] == owner and payload['allowance'] == reservation['allowance'],
+                'Dispatch grant binding differs')
+        require(type(units) is int and units > 0, 'Invalid or exhausted request allowance')
         spent = state.setdefault('spent', {})
         total = spent.get(reservation_id, 0) + units
-        require(type(units) is int and 0 < units and total <= reservation['allowance'],
-                'Invalid or exhausted request allowance')
+        require(total <= reservation['allowance'], 'Invalid or exhausted request allowance')
         spent[reservation_id] = total
 
 
@@ -184,11 +186,14 @@ class TransactionalAuthority:
                                      {'reservation_id': reservation_id},
                                      lambda model: self._owned(model, identity, 'CLAIMED'))
         require(fresh, 'Launch already used')
+        launch_digest = digest(record)
+        owner = record['state']['owner']
+        allowance = record['state']['reservations'][reservation_id]['allowance']
 
         def authorize(model):
             self._owned(model, identity, 'RUNNING')
             require(monotonic() < deadline and model.decisions.get(decision_id) is not None
-                    and model.record_digests[record['expected_version']] == digest(record),
+                    and model.record_digests[record['expected_version']] == launch_digest,
                     'Worker authority expired or absent')
 
         with _transaction(self.path) as db:
@@ -198,17 +203,21 @@ class TransactionalAuthority:
         def request(request_id, version, units):
             require(type(units) is int and units > 0, 'Invalid request units')
 
-            dispatch, fresh_dispatch = self._decide(request_id, version, 'dispatch',
-                                                    {'reservation_id': reservation_id, 'units': units}, authorize)
-            require(fresh_dispatch, 'Request already used')
+            payload = {'owner': owner, 'launch_digest': launch_digest, 'reservation_id': reservation_id,
+                       'allowance': allowance, 'units': units}
+            grant, fresh_grant = self._decide(request_id, version, 'dispatch', payload, authorize)
+            require(fresh_grant, 'Request already used')
+            self.checkpoint('before_dispatch')
+            # Admission is ordered against stop by the authority transaction.
+            # After admission the mock call is in flight, even if stop wins the next transaction.
             with _transaction(self.path) as db:
-                self.checkpoint('before_dispatch')
                 model = self._load(db)
                 authorize(model)
-                require(model.record_digests[-1] == digest(dispatch), 'Dispatch no longer current')
-                result = mock_transport(units)
-                self.checkpoint('after_dispatch')
-                return result
+                require(model.record_digests[-1] == digest(grant), 'Dispatch grant no longer current')
+            self.checkpoint('after_dispatch_admission')
+            result = mock_transport(grant['payload']['units'])
+            self.checkpoint('after_dispatch')
+            return result
 
         return request
 
