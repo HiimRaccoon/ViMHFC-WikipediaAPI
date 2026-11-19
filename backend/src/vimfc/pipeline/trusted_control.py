@@ -60,11 +60,16 @@ class SyntheticAuthority:
             head = self.witness.read()
             require(len(self.records) == len(self.record_digests), 'Authority record count differs')
             prior = None
+            decisions = {}
             for number, record in enumerate(self.records, 1):
                 require(set(record) == {'schema', 'version', 'decision_id', 'expected_version', 'previous_digest', 'action', 'payload', 'state'}, 'Malformed record')
-                require(record['schema'] == 1 and record['version'] == number and record['expected_version'] == number - 1 and record['previous_digest'] == prior, 'Broken authority chain')
+                require(type(record['schema']) is int and record['schema'] == 1 and type(record['version']) is int and record['version'] == number and type(record['expected_version']) is int and record['expected_version'] == number - 1 and record['previous_digest'] == prior, 'Broken authority chain')
+                name(record['decision_id'])
+                require(record['decision_id'] not in decisions, 'Duplicate decision ID')
+                decisions[record['decision_id']] = {k: record[k] for k in ('expected_version', 'action', 'payload')}
                 prior = digest(record)
                 require(prior == self.record_digests[number - 1], 'Authority record altered')
+            require(type(self.decisions) is dict and digest(self.decisions) == digest(decisions), 'Decision index differs from history')
             if head == (len(self.records), prior):
                 return 'ACKNOWLEDGED'
             if self.records and head == (len(self.records) - 1, self.records[-1]['previous_digest']):
@@ -85,9 +90,9 @@ class SyntheticAuthority:
         name(decision_id); name(action)
         require(type(expected_version) is int and type(payload) is dict, 'Invalid decision')
         request = {'expected_version': expected_version, 'action': action, 'payload': deepcopy(payload)}
+        require(self.status() != 'AUTHORITY_UNVERIFIED', 'Authority unverified')
         if decision_id in self.decisions:
-            require(self.decisions[decision_id] == request, 'Decision ID reused')
-            require(self.status() != 'AUTHORITY_UNVERIFIED', 'Authority unverified')
+            require(digest(self.decisions[decision_id]) == digest(request), 'Decision ID reused')
             return deepcopy(self.records[expected_version])
         require(self.status() == 'ACKNOWLEDGED', 'Authority unverified or pending')
         require(expected_version == len(self.records), 'Stale authority version')
@@ -102,7 +107,7 @@ class SyntheticAuthority:
         fields(record, ('schema', 'version', 'decision_id', 'expected_version', 'previous_digest', 'action', 'payload', 'state'))
         require(record['schema'] == 1, 'Unsupported schema')
         expected = self.propose(record['decision_id'], record['expected_version'], record['action'], record['payload'])
-        require(record == expected, 'Record or predecessor differs')
+        require(digest(record) == digest(expected), 'Record or predecessor differs')
         if record['decision_id'] not in self.decisions:
             self.records.append(deepcopy(record))
             self.record_digests.append(digest(record))
@@ -143,6 +148,12 @@ class SyntheticAuthority:
             if action == 'publish':
                 require(state['publication'] is not None and state['publication']['state'] == 'GENERATION_AUTHORIZED', 'Generation not authorized')
             owner['state'] = after
+        elif action == 'release_stopped':
+            fields(payload, ())
+            publication = state['publication']
+            require(status == 'STOPPED' and (publication is None or publication['state'] == 'RECONCILED_COMMITTED'),
+                    'Invalid release without publication')
+            owner['state'] = 'RELEASED'
         elif action == 'authorize_generation':
             fields(payload, ('target', 'expected_pointer'))
             require(status == 'STOPPED' and payload['expected_pointer'] == state['current'], 'Invalid generation authorization')
@@ -166,4 +177,74 @@ class SyntheticAuthority:
             if state['publication']: state['publication']['state'] = 'UNKNOWN_REQUIRES_OPERATOR_REVIEW'
         else:
             raise Incompatible('Unsupported decision')
+
+
+class SyntheticOwnership:
+    """Single-threaded orchestration over an initialized synthetic authority."""
+
+    def __init__(self, authority, *, attempt, epoch, job):
+        name(attempt)
+        name(job)
+        require(type(epoch) is int and epoch > 0, 'Invalid owner epoch')
+        self.authority = authority
+        self._identity = (attempt, epoch, job)
+
+    def _verified(self):
+        view = self.authority.inspect()
+        require(view['eligible'], 'Ownership authority unavailable or unverified')
+        return view['state']
+
+    def _owned(self, *states):
+        state = self._verified()
+        owner = state['owner']
+        require((owner['attempt'], owner['epoch'], owner['job']) == self._identity
+                and owner['state'] in states, 'Stale owner or invalid transition')
+        return state
+
+    def _decide(self, action, payload):
+        version = len(self.authority.records)
+        record = self.authority.propose(f'ownership:{version}', version, action, payload)
+        self.authority.store(record)
+        self.authority.acknowledge()
+        require(self.authority.status() == 'ACKNOWLEDGED', 'Ownership authority unverified')
+
+    def claim(self, *, operator, fencing_evidence):
+        self._verified()
+        attempt, epoch, job = self._identity
+        self._decide('claim', dict(operator=operator, fencing_evidence=fencing_evidence,
+                                  attempt=attempt, epoch=epoch, job=job))
+
+    def reserve(self, reservation_id, allowance):
+        self._owned('CLAIMED')
+        self._decide('reserve', dict(reservation_id=reservation_id, allowance=allowance,
+                                    attempt=self._identity[0]))
+
+    def launch(self, reservation_id):
+        name(reservation_id)
+        self._owned('CLAIMED')
+        self._decide('launch', {'reservation_id': reservation_id})
+        remaining = self._owned('RUNNING')['reservations'][reservation_id]['allowance']
+
+        # Only this call can issue the worker, even if the launch decision is replayed.
+        def consume(units):
+            nonlocal remaining
+            self._owned('RUNNING')
+            require(type(units) is int and 0 < units <= remaining, 'Invalid or exhausted request allowance')
+            remaining -= units
+            return remaining
+
+        return consume
+
+    def stop(self, *, terminated):
+        require(type(terminated) is bool, 'Explicit synthetic termination result required')
+        if terminated:
+            self._owned('RUNNING')
+            self._decide('stop', {})
+        else:
+            self._owned('CLAIMED', 'RUNNING')
+            self._decide('unknown', {'reason': 'Synthetic termination uncertain'})
+
+    def release(self):
+        self._owned('STOPPED')
+        self._decide('release_stopped', {})
 
