@@ -13,7 +13,7 @@ from .hyperlink_rank import graph_metrics
 from .incremental_collection import CollectionArchive
 from .relaxed_pilot import relaxed_rules
 from .transactional_control import _transaction
-from .trusted_control import require
+from .trusted_control import name, require
 from . import selection_contract
 from . import annotation_edges
 
@@ -74,7 +74,7 @@ class SyntheticSelection:
         return {'decision_id': launch['decision_id'], 'record_digest': digest(launch),
                 'epoch': state['owner']['epoch']}
 
-    def bind(self, decision_id, expected_version):
+    def _revalidate(self):
         current_policy = self._policy()
         value = self._selection()
         with _transaction(self.authority.path) as db:
@@ -113,6 +113,12 @@ class SyntheticSelection:
         selection_contract.binding(binding)
         require(binding['policy_hashes'] == current_policy['hashes']
                 and self._policy() == current_policy, 'Trusted current policy differs')
+        require(digest(self._selection()) == binding['selection_sha256'], 'Selection changed during revalidation')
+        return binding
+
+    def bind(self, decision_id, expected_version):
+        binding = self._revalidate()
+        activation = binding['activation']
         # Witnessed assertions alone cannot certify that this gate actually replayed selection.
         self._revalidated.add(digest(binding))
 
@@ -122,6 +128,33 @@ class SyntheticSelection:
                             for r in model.records), 'Selection already bound for activation')
 
         self.authority._decide(decision_id, expected_version, 'bind_selection', binding, check)
+        return canonical({'decision_id': decision_id, 'binding': binding})
+
+    def _recoverable(self, model, decision_id):
+        activation = self._activation(model)
+        entry = model.decisions.get(decision_id)
+        require(entry is not None and entry['action'] == 'bind_selection', 'Acknowledged selection binding required')
+        selection_contract.binding(entry['payload'])
+        binding = entry['payload']
+        require(binding['activation'] == activation and binding['generation'] == self.target,
+                'Selection binding is stale or mismatched')
+        policy = self._policy()
+        require(binding['policy_identity'] == policy['identity'] and binding['policy_hashes'] == policy['hashes'],
+                'Trusted current policy differs')
+        return deepcopy(entry)
+
+    def recover_approval(self, decision_id):
+        """Replay independently, then restore only local approval of the original decision."""
+        name(decision_id)
+        with _transaction(self.authority.path) as db:
+            original = self._recoverable(self.authority._load(db), decision_id)
+        binding = self._revalidate()
+        require(canonical(binding) == canonical(original['payload']), 'Revalidation differs from witnessed binding')
+        with _transaction(self.authority.path) as db:
+            require(digest(self._selection()) == binding['selection_sha256'], 'Selection changed during recovery')
+            current = self._recoverable(self.authority._load(db), decision_id)
+            require(canonical(current) == canonical(original), 'Witnessed binding changed during recovery')
+            self._revalidated.add(digest(binding))
         return canonical({'decision_id': decision_id, 'binding': binding})
 
     def consume(self, encoded=None):
@@ -155,4 +188,3 @@ class SyntheticSelection:
             require(binding['activation'] == activation and binding['generation'] == self.target
                     and binding['selection_sha256'] == digest(value), 'Selection binding is stale or mismatched')
         return value
-
