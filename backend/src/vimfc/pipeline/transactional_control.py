@@ -149,11 +149,19 @@ class TransactionalAuthority:
         with _transaction(self.path) as db:
             return self._load(db).inspect()
 
-    def recover(self):
+    @staticmethod
+    def _verified_reconciliation(model, verification):
+        from .durable_publication import PublicationVerification
+        require(type(verification) is PublicationVerification, 'Checked publication verification required')
+        verification.verify(model)
+
+    def recover(self, *, reconciliation=None):
         """Acknowledge only a verified committed record matching the staged digest."""
         with _transaction(self.path) as db:
             model = self._load(db)
             if model.status() == 'PENDING_ACKNOWLEDGMENT':
+                if model.records[-1]['action'] == 'reconcile':
+                    self._verified_reconciliation(model, reconciliation)
                 self.witness.acknowledge(self.genesis, model.records[-1])
 
     def decide(self, decision_id, expected_version, action, payload):
@@ -162,11 +170,13 @@ class TransactionalAuthority:
         record, _ = self._decide(decision_id, expected_version, action, payload)
         return record
 
-    def _decide(self, decision_id, expected_version, action, payload, check=_noop):
+    def _decide(self, decision_id, expected_version, action, payload, check=_noop, *, reconciliation=None):
         with _transaction(self.path) as db:
             model = self._load(db)
             require(model.status() == 'ACKNOWLEDGED', 'Witness acknowledgment required')
             check(model)
+            if action == 'reconcile':
+                self._verified_reconciliation(model, reconciliation)
             record = model.propose(decision_id, expected_version, action, payload)
             if decision_id in model.decisions:
                 return record, False
@@ -180,6 +190,8 @@ class TransactionalAuthority:
             model = self._load(db)
             require(model.record_digests[-1] == digest(record), 'Decision no longer current')
             self.checkpoint('before_ack')
+            if action == 'reconcile':
+                self._verified_reconciliation(model, reconciliation)
             self.witness.acknowledge(self.genesis, record)
             self.checkpoint('after_ack')
         return record, True
