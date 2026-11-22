@@ -64,6 +64,13 @@ class SQLiteWitness:
 
 class _Contract(SyntheticAuthority):
     def _apply(self, state, action, payload):
+        if action == 'launch' and ('http_policy' in payload or 'http_policy' in state):
+            from .budget_transport import apply_launch
+            apply_launch(self, state, payload)
+            return super()._apply(state, action, {'reservation_id': payload['reservation_id']})
+        if action == 'http_outcome':
+            from .budget_transport import apply_outcome
+            return apply_outcome(self, payload)
         if action == 'activate':
             return super()._apply(state, 'launch', {'reservation_id': payload['reservation_id']})
         if action == 'bind_selection':
@@ -93,6 +100,9 @@ class _Contract(SyntheticAuthority):
         require(payload['owner'] == owner and payload['allowance'] == reservation['allowance'],
                 'Dispatch grant binding differs')
         require(type(units) is int and units > 0, 'Invalid or exhausted request allowance')
+        if 'http_policy' in state or 'http_attempt' in payload:
+            from .budget_transport import apply_attempt
+            apply_attempt(self, state, payload)
         spent = state.setdefault('spent', {})
         total = spent.get(reservation_id, 0) + units
         require(total <= reservation['allowance'], 'Invalid or exhausted request allowance')
@@ -165,7 +175,7 @@ class TransactionalAuthority:
                 self.witness.acknowledge(self.genesis, model.records[-1])
 
     def decide(self, decision_id, expected_version, action, payload):
-        require(action not in ('launch', 'activate', 'dispatch', 'reconcile', 'bind_selection'),
+        require(action not in ('launch', 'activate', 'dispatch', 'reconcile', 'bind_selection', 'http_outcome'),
                 'Use the appropriate control boundary')
         record, _ = self._decide(decision_id, expected_version, action, payload)
         return record
@@ -209,7 +219,7 @@ class TransactionalAuthority:
                             reservation_id=reservation_id, ttl=ttl, mock_transport=mock_transport)
 
     def _launch(self, decision_id, expected_version, *, attempt, epoch, job,
-                reservation_id, ttl, mock_transport, activation=None, check=_noop):
+                reservation_id, ttl, mock_transport, activation=None, check=_noop, http_policy=None):
         name(attempt)
         name(job)
         name(reservation_id)
@@ -226,6 +236,8 @@ class TransactionalAuthority:
         payload = {'reservation_id': reservation_id}
         if activation is not None:
             payload['activation'] = activation
+        if http_policy is not None:
+            payload['http_policy'] = http_policy
         record, fresh = self._decide(decision_id, expected_version,
                                      'launch' if activation is None else 'activate', payload, validate)
         require(fresh, 'Launch already used')
@@ -243,19 +255,26 @@ class TransactionalAuthority:
             self.checkpoint('before_worker_issue')
             authorize(self._load(db))
 
-        def request(request_id, version, units):
+        def request(request_id, version, units, *, http_attempt=None, check=_noop):
             require(type(units) is int and units > 0, 'Invalid request units')
 
             payload = {'owner': owner, 'launch_digest': launch_digest, 'reservation_id': reservation_id,
                        'allowance': allowance, 'units': units}
-            grant, fresh_grant = self._decide(request_id, version, 'dispatch', payload, authorize)
+            if http_attempt is not None:
+                payload['http_attempt'] = http_attempt
+
+            def admission(model):
+                authorize(model)
+                check(model)
+
+            grant, fresh_grant = self._decide(request_id, version, 'dispatch', payload, admission)
             require(fresh_grant, 'Request already used')
             self.checkpoint('before_dispatch')
             # Admission is ordered against stop by the authority transaction.
             # After admission the mock call is in flight, even if stop wins the next transaction.
             with _transaction(self.path) as db:
                 model = self._load(db)
-                authorize(model)
+                admission(model)
                 require(model.record_digests[-1] == digest(grant), 'Dispatch grant no longer current')
             self.checkpoint('after_dispatch_admission')
             result = mock_transport(grant['payload']['units'])
@@ -263,4 +282,3 @@ class TransactionalAuthority:
             return result
 
         return request
-
