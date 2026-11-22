@@ -66,6 +66,8 @@ class _Contract(SyntheticAuthority):
     def _apply(self, state, action, payload):
         if action == 'activate':
             return super()._apply(state, 'launch', {'reservation_id': payload['reservation_id']})
+        if action == 'bind_selection':
+            return
         if action != 'dispatch':
             return super()._apply(state, action, payload)
         reservation_id, units = payload['reservation_id'], payload['units']
@@ -141,7 +143,8 @@ class TransactionalAuthority:
                 self.witness.acknowledge(self.genesis, model.records[-1])
 
     def decide(self, decision_id, expected_version, action, payload):
-        require(action not in ('launch', 'activate', 'dispatch', 'reconcile'), 'Use the appropriate control boundary')
+        require(action not in ('launch', 'activate', 'dispatch', 'reconcile', 'bind_selection'),
+                'Use the appropriate control boundary')
         record, _ = self._decide(decision_id, expected_version, action, payload)
         return record
 
