@@ -14,8 +14,12 @@ from test_worker_activation import activation, workspace
 def restored(activation):
     gate, params, _ = activation
     receipt, _ = gate.activate('activation', 8, **params)
+    with closing(sqlite3.connect(params['output'] / 'pipeline.sqlite')) as db:
+        config = json.loads(db.execute('SELECT config_json FROM pipeline_runs WHERE pipeline_run_id=?',
+                            (receipt['current']['identity']['run_id'],)).fetchone()[0])
     selection = selection_epoch.SyntheticSelection(
-        gate.authority, params['output'], target=gate.current, compatible=gate.compatible, bundle=params['bundle'])
+        gate.authority, params['output'], target=gate.current, compatible=gate.compatible, bundle=params['bundle'],
+        trusted_policy=lambda: selection_epoch.policy_fingerprint(config, gate.compatible['runtime']))
     return selection, receipt
 
 
@@ -104,4 +108,86 @@ def test_interrupted_binding_is_unusable_until_witness_ack(restored):
         selection.consume(binding)
     a.recover()
     assert selection.consume(binding)['pilot_accepted'] is False
+
+
+@pytest.mark.parametrize('change', ['policy', 'runtime', 'missing', 'malformed'])
+def test_current_policy_change_after_binding_denies_consumer(restored, change):
+    selection, _ = restored
+    encoded = selection.bind('binding', 9)
+    current = selection._policy()
+    if change == 'missing':
+        selection.trusted_policy = None
+    else:
+        if change == 'policy':
+            current['hashes']['quotas'] = '0' * 64
+        elif change == 'runtime':
+            current['identity'] = '0' * 64
+        else:
+            current.pop('identity')
+        selection.trusted_policy = lambda: current
+    with pytest.raises(Incompatible):
+        selection.consume(encoded)
+
+
+def test_unchanged_consumer_avoids_full_replay(restored, monkeypatch):
+    selection, _ = restored
+    encoded = selection.bind('binding', 9)
+    monkeypatch.setattr(selection_epoch, 'select_articles', lambda *_a, **_k: pytest.fail('Unexpected replay'))
+    assert selection.consume(encoded) == selection.consume(encoded)
+
+
+@pytest.mark.parametrize('damage', ['missing', 'extra', 'policy', 'checkpoint', 'epoch', 'identity'])
+def test_malformed_authority_payload_is_rejected(restored, damage):
+    selection, _ = restored
+    payload = json.loads(selection.bind('binding', 9))['binding']
+    if damage == 'missing':
+        payload.pop('checkpoint_sha256')
+    elif damage == 'extra':
+        payload['verified'] = True
+    elif damage == 'policy':
+        payload['policy_hashes']['extra'] = 'a' * 64
+    elif damage == 'checkpoint':
+        payload['checkpoint_sha256'] = 'bad'
+    elif damage == 'identity':
+        payload['policy_identity'] = None
+    else:
+        payload['activation']['epoch'] = True
+    with pytest.raises(Incompatible):
+        selection.authority._decide('forged', 10, 'bind_selection', payload)
+    with pytest.raises(Incompatible):
+        selection.consume(canonical({'decision_id': 'forged', 'binding': payload}))
+
+
+def test_witnessed_low_level_assertion_is_not_revalidation(restored):
+    selection, _ = restored
+    encoded = selection.bind('binding', 9)
+    # A fresh gate has no independently retained revalidation approval.
+    other = selection_epoch.SyntheticSelection(
+        selection.authority, selection.root, target=selection.target,
+        compatible=selection.compatible, bundle=selection.bundle, trusted_policy=selection.trusted_policy)
+    with pytest.raises(Incompatible, match='revalidation approval'):
+        other.consume(encoded)
+
+
+def test_arbitrary_valid_low_level_payload_has_no_revalidation_approval(restored):
+    selection, _ = restored
+    current = selection._policy()
+    manifest = selection_epoch.publication.read_canonical(selection.root / 'manifest.json')
+    with selection_epoch._transaction(selection.authority.path) as db:
+        active = selection._activation(selection.authority._load(db))
+    payload = dict(format='synthetic-selection-epoch-1', generation=selection.target,
+                   checkpoint_sha256=manifest['checkpoint']['checkpoint_hash'],
+                   selection_sha256=manifest['artifacts']['selection.json']['sha256'],
+                   policy_identity=current['identity'], policy_hashes=current['hashes'], activation=active)
+    selection.authority._decide('assertion', 9, 'bind_selection', payload)
+    with pytest.raises(Incompatible, match='revalidation approval'):
+        selection.consume(canonical({'decision_id': 'assertion', 'binding': payload}))
+
+
+def test_declared_policy_change_after_binding(restored, monkeypatch):
+    selection, _ = restored
+    encoded = selection.bind('binding', 9)
+    monkeypatch.setattr(selection_epoch.annotation_edges, 'RANK_VERSION', 'changed-policy')
+    with pytest.raises(Incompatible, match='current policy'):
+        selection.consume(encoded)
 
