@@ -89,7 +89,7 @@ def compatibility(db, runtime):
                 "SELECT type,name,tbl_name,sql FROM sqlite_master ORDER BY type,name")])}
 
 
-def verify_workspace(root, bundle):
+def verify_workspace(root, bundle, *, check=None):
     """Read-only actual incremental schema; no fabricated source/provenance fields."""
     root = Path(root)
     require_local(root); require_local(bundle)
@@ -200,11 +200,13 @@ def verify_workspace(root, bundle):
                 if row['status'] == 'processed' and record['source_validation'] != proof:
                     raise Incompatible('Processed provenance differs')
         policy_hashes = {key:digest(archive.config[key]) for key in ('classification','extraction','ranking')}
+        if check is not None:
+            check(archive, header, rows)
     return {'binding': header, 'policy_hashes':policy_hashes, 'checkpoint_hash': digest(state), 'attempts': attempts,
             'records': len(rows), 'selection': 'stale' if (root / 'selection.json').exists() else 'absent'}
 
 
-def verify_generation(root, *, trusted, bundle, compatible):
+def verify_generation(root, *, trusted, bundle, compatible, check=None):
     root = Path(root); require_local(root)
     require_local(root / 'manifest.json')
     raw = (root / 'manifest.json').read_bytes()
@@ -235,7 +237,7 @@ def verify_generation(root, *, trusted, bundle, compatible):
     with closing(readonly(root / 'pipeline.sqlite')) as db:
         if compatibility(db, compatible['runtime']) != compatible:
             raise Incompatible('Actual SQLite schema differs')
-    checkpoint = verify_workspace(root, bundle)
+    checkpoint = verify_workspace(root, bundle, check=check)
     if checkpoint != manifest['checkpoint'] or checkpoint['binding']['context']['run_id'] != identity['run_id'] or checkpoint['binding']['bundle_id'] != identity['bundle_id']:
         raise Incompatible('Generation checkpoint binding differs')
     return {'verified': True, 'generation_id': identity['generation_id'], **checkpoint}
