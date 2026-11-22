@@ -67,6 +67,20 @@ class _Contract(SyntheticAuthority):
         if action == 'activate':
             return super()._apply(state, 'launch', {'reservation_id': payload['reservation_id']})
         if action == 'bind_selection':
+            from .selection_contract import binding
+            binding(payload)
+            require(state['owner']['state'] == 'RUNNING'
+                    and payload['activation']['epoch'] == state['owner']['epoch'],
+                    'Invalid selection binding owner')
+            activation = next((r for r in reversed(self.records) if r['action'] in ('launch', 'activate')), None)
+            require(activation is not None and activation['action'] == 'activate'
+                    and payload['activation']['decision_id'] == activation['decision_id']
+                    and payload['activation']['record_digest'] == digest(activation)
+                    and activation['state']['owner'] == state['owner']
+                    and activation['payload']['activation']['generation'] == payload['generation'],
+                    'Selection binding activation differs')
+            require(not any(r['action'] == action and r['payload']['activation'] == payload['activation']
+                            for r in self.records), 'Selection already bound for activation')
             return
         if action != 'dispatch':
             return super()._apply(state, action, payload)
