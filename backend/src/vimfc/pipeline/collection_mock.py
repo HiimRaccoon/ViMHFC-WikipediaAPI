@@ -62,9 +62,15 @@ class SyntheticCollection(httpx.BaseTransport):
         self.gate.authorize(request, request_id='collection-' + uuid.uuid4().hex,
                             expected_version=len(self.gate._model().records))
         try:
-            return self.gate.handle_request(request)
-        finally:
-            self._counters(before=False)
+            response = self.gate.handle_request(request)
+        except BaseException as error:
+            try:
+                self._counters(before=False)
+            except BaseException as sync_error:
+                error.add_note(f'Counter synchronization also failed: {type(sync_error).__name__}: {sync_error}')
+            raise
+        self._counters(before=False)
+        return response
 
     def close(self):
         self._guard = None

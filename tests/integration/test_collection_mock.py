@@ -266,6 +266,61 @@ def test_non_mock_transport_is_never_constructed_or_dispatched(tmp_path, config,
     assert calls == []
 
 
+def test_denied_charge_keeps_conservative_workspace_overcount(tmp_path, config, monkeypatch):
+    a, gate, calls, bundle, work, _ = setup(tmp_path, config, monkeypatch, allowance=1)
+    with pytest.raises(Incompatible): run(gate, bundle, work)
+    with sqlite3.connect(work / 'pipeline.sqlite') as db:
+        local = int(db.execute("SELECT value FROM collection_control WHERE key='attempts'").fetchone()[0])
+    assert local == 2 and spent(a) == len(calls) == 1
+    with pytest.raises(Incompatible): run(gate, bundle, work)
+    assert spent(a) == len(calls) == 1
+
+
+def test_timeout_classification_survives_counter_sync_failure(tmp_path, config, monkeypatch):
+    a, gate, calls, bundle, work, _ = setup(tmp_path, config, monkeypatch)
+    original = SyntheticCollection._counters
+    def sync(self, *, before):
+        if not before: raise OSError('synthetic counter sync failure')
+        return original(self, before=before)
+    monkeypatch.setattr(SyntheticCollection, '_counters', sync)
+    def handler(request):
+        calls.append(request)
+        raise httpx.ReadTimeout('original synthetic transport failure')
+    gate._fake = httpx.MockTransport(handler)
+    with pytest.raises(SourceUnavailable, match='original synthetic transport failure') as caught:
+        run(gate, bundle, work)
+    assert caught.value.code == 'network_timeout' and caught.value.retryable
+    assert caught.value.collection_receipt['status'] == 'retryable'
+    assert spent(a) == len(calls) == 1
+
+
+@pytest.mark.parametrize('failure', ['timeout', 'admission', 'interrupt', 'success'])
+def test_boundary_preserves_primary_error_and_sync_diagnostic(tmp_path, config, monkeypatch, failure):
+    a, gate, calls, _, work, header = setup(tmp_path, config, monkeypatch)
+    from vimfc.storage.pipeline_store import PipelineStore
+    fixture = SyntheticCollection(gate)
+    primary = {'timeout': httpx.ReadTimeout('primary'), 'admission': Incompatible('primary'),
+               'interrupt': KeyboardInterrupt('primary')}.get(failure)
+    def dispatch(request):
+        if primary is not None: raise primary
+        return httpx.Response(200)
+    secondary = OSError('sync failed')
+    monkeypatch.setattr(gate, 'handle_request', dispatch)
+    with PipelineStore(work / 'pipeline.sqlite') as store:
+        with fixture.client(store, header, 10, lambda r: None, {'contact': 'fixture@example.com'}) as client:
+            original = fixture._counters
+            def sync(*, before):
+                if not before: raise secondary
+                return original(before=before)
+            monkeypatch.setattr(fixture, '_counters', sync)
+            with pytest.raises(type(primary) if primary is not None else OSError) as caught:
+                fixture.handle_request(client.client.build_request('GET', 'https://vi.wikipedia.org/w/api.php?maxlag=5'))
+            assert caught.value is (primary if primary is not None else secondary)
+            if primary is not None:
+                assert 'OSError: sync failed' in primary.__notes__[0]
+    assert spent(a) == 0 and calls == []
+
+
 def _crash(root, point):
     socket.socket.connect = lambda *_a, **_k: (_ for _ in ()).throw(AssertionError('Network forbidden'))
     os.environ['VIMFC_OFFLINE'] = '1'
