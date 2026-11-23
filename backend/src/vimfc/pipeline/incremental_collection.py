@@ -228,7 +228,7 @@ def _metadata(store, source_run, record):
 
 
 def collect_batch(bundle, workspace, *, mode, through, batch_size=250, max_requests=1000,
-                  allow_network=False, client_factory=None):
+                  allow_network=False, client_factory=None, synthetic_budget=None):
     """One invocation only. Caller chooses each next prefix; no scale progression."""
     workspace = Path(workspace).resolve()
     if not (workspace / 'workspace.json').is_file():
@@ -237,7 +237,13 @@ def collect_batch(bundle, workspace, *, mode, through, batch_size=250, max_reque
             or type(batch_size) is not int or not 1 <= batch_size <= 1000
             or type(max_requests) is not int or max_requests < 0):
         raise Incompatible('Invalid collection bounds/mode')
-    if mode == 'acquire' and not allow_network:
+    if synthetic_budget is not None:
+        from .collection_mock import SyntheticCollection, require_offline
+        require_offline()
+        if (type(synthetic_budget) is not SyntheticCollection or mode != 'acquire'
+                or allow_network or client_factory is not None):
+            raise Incompatible('Synthetic collection requires isolated offline acquisition')
+    if mode == 'acquire' and not allow_network and synthetic_budget is None:
         raise Incompatible('Acquisition requires explicit network authorization')
     started = time.monotonic()
     with exclusive(workspace / '.writer.lock'):
@@ -293,9 +299,12 @@ def collect_batch(bundle, workspace, *, mode, through, batch_size=250, max_reque
             try:
                 if mode == 'acquire' and eligible < header['target']:
                     cfg = store.run(context['run_id'])['config']
-                    factory = client_factory or (lambda: MediaWikiClient(cfg['contact'], user_agent=cfg.get('user_agent') or 'ViMFC/0.1', attempts=1))
+                    factory = ((lambda: synthetic_budget.client(store, header, max_requests, guard, cfg))
+                               if synthetic_budget is not None else client_factory or
+                               (lambda: MediaWikiClient(cfg['contact'], user_agent=cfg.get('user_agent') or 'ViMFC/0.1', attempts=1)))
                     with factory() as client:
-                        client.client.event_hooks['request'].append(guard)
+                        if synthetic_budget is None:
+                            client.client.event_hooks['request'].append(guard)
                         provider = HistoricalProvider(store, context['run_id'], client, RawCache(context['raw_cache']), classification_required=False)
                         # Carry the original read-only refusals; never bind or write that registry.
                         provider.source.integrity_registry = source.registry
