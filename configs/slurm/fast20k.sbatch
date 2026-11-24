@@ -32,7 +32,9 @@ cd "$FAST20K_REPO"
 local_parent="/local/fast20k-${USER}-${SLURM_JOB_ID}"
 mkdir -m 700 "$local_parent"
 cp "$FAST20K_MODEL" "$local_parent/model.gguf"
-cp -a "$(dirname "$FAST20K_RUNTIME")" "$local_parent/runtime"
+# Copy bytes and symlinks without importing NFS permissions/ACL metadata.
+cp -R --no-preserve=all "$(dirname "$FAST20K_RUNTIME")" "$local_parent/runtime"
+chmod u+x "$local_parent/runtime/llama-server"
 logs="$FAST20K_STAGE/logs/$SLURM_JOB_ID"
 mkdir -p "$logs"
 "$FAST20K_PYTHON" -B scripts/fast20k.py run \
