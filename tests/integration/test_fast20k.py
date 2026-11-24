@@ -74,6 +74,62 @@ def test_changed_config_is_refused(tmp_path,config,monkeypatch):
     with pytest.raises(Incompatible,match='binding'):run(**kwargs)
 
 
+def move_failure_factory(calls):
+    import httpx
+    from vimfc.domain import SourceUnavailable
+    def make():
+        client=factory(calls)();original=client.client._transport.handler
+        def handler(request):
+            if request.url.params.get('pageids')=='4':
+                calls.append(dict(request.url.params))
+                raise SourceUnavailable('Ambiguous historical move chain')
+            return original(request)
+        client.client._transport=httpx.MockTransport(handler)
+        return client
+    return make
+
+
+def test_ambiguous_move_skips_only_that_article_and_resume_does_not_retry(tmp_path,config,monkeypatch):
+    kwargs,calls=call(tmp_path,config,monkeypatch,cfg=profile(target=4))
+    kwargs['client_factory']=move_failure_factory(calls)
+    result=run(**kwargs)
+    assert result['stop_reason']=='TARGET_REACHED' and result['eligible_articles']==4
+    assert result['states']==dict(processed=4,skipped_ambiguous_move=1)
+    with closing(sqlite3.connect(kwargs['workspace']/'pipeline.sqlite')) as db:
+        eligible,body,error=db.execute('SELECT eligible,record_json,error_json FROM fast_work WHERE page_id=4').fetchone()
+        assert eligible==0 and body is None and json.loads(error)['message']=='Ambiguous historical move chain'
+        assert not db.execute("SELECT 1 FROM fast_control WHERE key='fatal'").fetchone()
+    before=len(calls)
+    restored=tmp_path/'restored-move';restore(kwargs['bundle'],restored,kwargs['durable'],kwargs['profile'])
+    kwargs['workspace']=restored
+    assert run(**kwargs)['eligible_articles']==4 and len(calls)==before
+
+
+def test_reviewed_move_fatal_from_old_code_can_resume_without_refunding(tmp_path,config,monkeypatch):
+    import vimfc.pipeline.fast20k as campaign
+    kwargs,calls=call(tmp_path,config,monkeypatch,cfg=profile(target=4))
+    kwargs['client_factory']=move_failure_factory(calls)
+    with monkeypatch.context() as old:
+        old.setattr(campaign,'ambiguous_move',lambda error:False)
+        stopped=run(**kwargs)
+    assert stopped['stop_reason']=='INTEGRITY_FAILURE'
+    charged=load(kwargs['durable']/'http-budget.json')['attempts'];before=len(calls)
+    result=run(**kwargs)
+    assert result['stop_reason']=='TARGET_REACHED' and result['states']['skipped_ambiguous_move']==1
+    assert result['physical_requests']>=charged and len(calls)==before+2
+    with closing(sqlite3.connect(kwargs['workspace']/'pipeline.sqlite')) as db:
+        recovery=json.loads(db.execute("SELECT value FROM fast_control WHERE key='ambiguous_move_recovery'").fetchone()[0])
+        assert recovery['skipped_page_ids']==[4]
+
+
+def test_move_fatal_without_matching_acquisition_evidence_stays_blocked(tmp_path,config,monkeypatch):
+    kwargs,_=call(tmp_path,config,monkeypatch)
+    run(**kwargs)
+    with closing(sqlite3.connect(kwargs['workspace']/'pipeline.sqlite')) as db:
+        db.execute("INSERT INTO fast_control VALUES ('fatal','Ambiguous historical move chain')");db.commit()
+    with pytest.raises(Incompatible,match='previous integrity'):run(**kwargs)
+
+
 def test_restored_lower_sql_counter_cannot_refund_persistent_spending(tmp_path,config,monkeypatch):
     kwargs,calls=call(tmp_path,config,monkeypatch,cfg=profile(target=5))
     first=run(**kwargs)

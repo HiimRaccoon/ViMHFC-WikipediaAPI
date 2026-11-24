@@ -70,6 +70,16 @@ walltime limit is added. The child server is stopped when its owner exits.
 
 ## Orchestration, network and recovery
 
+FAST-20K treats the exact nonretryable `SourceUnavailable` error
+`Ambiguous historical move chain` (code `source_unavailable`) as article-local:
+save `skipped_ambiguous_move` with its reason and page ID, exclude that article,
+and continue. Resume does not retry it. All other source-integrity guards remain.
+An older checkpoint stopped by exactly this error can recover only when a failed
+acquisition record for a pending/deferred article proves the same error. Recovery
+records skipped IDs and the former fatal reason in `ambiguous_move_recovery`,
+preserves stage evidence and spending, and clears only that matching fatal flag.
+A missing matching record or a different fatal reason continues to block resume.
+
 `scripts/fast20k.py run` drives an indexed candidate/work queue across successive
 100-article checkpoint intervals. It stops on target, candidate exhaustion,
 HTTP budget, cooldown, interruption, integrity failure or operational error.

@@ -36,6 +36,33 @@ def load(path):
     return json.loads(Path(path).read_text(encoding='utf-8'))
 
 
+def ambiguous_move(error):
+    return (type(error) is SourceUnavailable and not error.retryable
+            and error.code=='source_unavailable' and str(error)=='Ambiguous historical move chain')
+
+
+def skip_ambiguous_move(store,page,error):
+    store.db.execute("UPDATE fast_work SET status='skipped_ambiguous_move',eligible=0,retry_at=NULL,record_json=NULL,record_hash=NULL,error_json=? WHERE page_id=?",
+        (canonical(dict(type='SourceUnavailable',message=str(error),code=error.code)),page))
+
+
+def recover_ambiguous_move_stop(store,run_id):
+    """The reviewed article-local policy also applies to a checkpoint stopped by older code."""
+    fatal=store.db.execute("SELECT value FROM fast_control WHERE key='fatal'").fetchone()
+    if not fatal or fatal[0]!='Ambiguous historical move chain':return
+    pages=[]
+    for page,body in store.db.execute("SELECT s.identity,s.error_json FROM stage_results s JOIN fast_work w ON s.identity=CAST(w.page_id AS TEXT) WHERE s.run_id=? AND s.stage='acquire' AND s.status='failed' AND w.status IN ('pending','deferred') AND s.error_json IS NOT NULL",(run_id,)):
+        saved=json.loads(body)
+        error=SourceUnavailable(saved['message'],code=saved['code'])
+        if ambiguous_move(error):pages.append(int(page))
+    if not pages:return  # An unproven/other fatal stop still requires review.
+    with store.transaction():
+        for page in sorted(set(pages)):skip_ambiguous_move(store,page,SourceUnavailable(fatal[0]))
+        store.db.execute("INSERT OR REPLACE INTO fast_control VALUES ('ambiguous_move_recovery',?)",
+            (canonical(dict(previous_fatal=fatal[0],skipped_page_ids=sorted(set(pages)),at=now())),))
+        store.db.execute("DELETE FROM fast_control WHERE key='fatal' AND value=?",(fatal[0],))
+
+
 def validate_profile(profile, *, fixture=False):
     for key in ('target','max_candidates','request_limit','batch_size','checkpoint_every_articles'):
         if type(profile.get(key)) is not int or profile[key]<=0:
@@ -279,6 +306,7 @@ def run(bundle,workspace,durable,profile,*,allow_network=False,client_factory=No
                 raise Incompatible('FAST-20K database binding differs')
             store.require_config(context['run_id'],store.run(context['run_id'])['config'])
             cfg=store.run(context['run_id'])['config']
+            recover_ambiguous_move_stop(store,context['run_id'])
             fatal=store.db.execute("SELECT value FROM fast_control WHERE key='fatal'").fetchone()
             if fatal:raise Incompatible('FAST-20K previous integrity failure requires review: '+fatal[0])
             transport=CampaignTransport(store,durable,profile,authorized=allow_network)
@@ -375,9 +403,11 @@ def run(bundle,workspace,durable,profile,*,allow_network=False,client_factory=No
                                 if record['quality']['eligible'] and not cls.get('primary_entity_type'):
                                     store.db.execute('INSERT OR IGNORE INTO fast_qwen(page_id) VALUES (?)',(page,))
                         except SourceUnavailable as error:
-                            kind=failure_kind(error)
+                            kind='ambiguous_move' if ambiguous_move(error) else failure_kind(error)
                             if kind=='integrity_fatal':raise
-                            status='deferred' if error.retryable else 'missing' if kind=='missing' else 'unsupported'
+                            status=('skipped_ambiguous_move' if kind=='ambiguous_move' else
+                                'deferred' if error.retryable else 'missing' if kind=='missing' else 'unsupported')
+                            if kind=='ambiguous_move':consecutive_failures=0
                             retry_at=error.retry_at
                             if error.retryable and not retry_at:
                                 from datetime import timedelta
@@ -388,7 +418,7 @@ def run(bundle,workspace,durable,profile,*,allow_network=False,client_factory=No
                                 consecutive_failures+=1
                                 if consecutive_failures>=3:reason='SOURCE_COOLDOWN';break
                                 continue
-                            if kind not in ('missing','unsupported'):
+                            if kind not in ('missing','unsupported','ambiguous_move'):
                                 reason='OPERATIONAL_ERROR'
                                 _publish_json(durable/'last-error.json',dict(type=type(error).__name__,code=error.code,message=str(error)))
                                 break
