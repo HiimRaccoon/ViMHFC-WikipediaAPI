@@ -1,0 +1,32 @@
+{
+  "version": "fast20k-1",
+  "snapshot": "2026-10-25T03:00:00Z",
+  "max_candidates": 100000,
+  "target": 20000,
+  "batch_size": 100,
+  "request_limit": 200000,
+  "min_interval_seconds": 1,
+  "checkpoint_every_articles": 100,
+  "extraction_policy": "lead-first-paragraph-1",
+  "quality_policy": "quality-relaxed-1",
+  "edge_policy": "annotation-edge-1",
+  "ranking_policy": "rank-annotation-1",
+  "classification_optional": true,
+  "qwen": {
+    "base_model": "Qwen/Qwen3.5-4B",
+    "model_id": "unsloth/Qwen3.5-4B-GGUF",
+    "model_revision": "e87f176479d0855a907a41277aca2f8ee7a09523",
+    "quantization": "Q4_K_M",
+    "model_sha256": "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4",
+    "endpoint": "http://127.0.0.1:18865",
+    "runtime": "llama.cpp-b12651"
+  },
+  "selection": {
+    "version": "btt-forest-1",
+    "max_depth": 3,
+    "max_children": 2,
+    "probe_limit": 8,
+    "score": "distinct-retained-first-paragraph-targets",
+    "roots": "soft-quota-degree-1"
+  }
+}

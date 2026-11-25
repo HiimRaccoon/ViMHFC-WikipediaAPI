@@ -64,6 +64,9 @@ def recover_ambiguous_move_stop(store,run_id):
 
 
 def validate_profile(profile, *, fixture=False):
+    if 'selection' in profile:
+        from .btt import POLICY
+        if profile['selection']!=POLICY:raise Incompatible('BTT selection policy differs')
     for key in ('target','max_candidates','request_limit','batch_size','checkpoint_every_articles'):
         if type(profile.get(key)) is not int or profile[key]<=0:
             raise Incompatible('FAST-20K positive integer required: '+key)
@@ -203,12 +206,17 @@ class CampaignTransport(httpx.BaseTransport):
 def progress(store, header, reason=None):
     states=dict(store.db.execute('SELECT status,count(*) FROM fast_work GROUP BY status'))
     eligible=store.db.execute('SELECT count(*) FROM fast_work WHERE eligible=1').fetchone()[0]
-    return dict(format='fast20k-progress-1',run_id=header['context']['run_id'],snapshot=SNAPSHOT,
+    result=dict(format='fast20k-progress-1',run_id=header['context']['run_id'],snapshot=SNAPSHOT,
         binding_id=header['binding_id'],target=header['profile']['target'],candidate_limit=header['candidate_count'],
         eligible_articles=eligible,states=states,stop_reason=reason,
         physical_requests=int(store.db.execute("SELECT value FROM fast_control WHERE key='attempts'").fetchone()[0]),
         qwen_states=dict(store.db.execute('SELECT status,count(*) FROM fast_qwen GROUP BY status')),
         eligible_target_reached=eligible>=header['profile']['target'],corpus_complete=False,updated_at=now())
+    if 'selection' in header['profile']:
+        result['selected_articles']=store.db.execute('SELECT count(*) FROM btt_members').fetchone()[0]
+        result['eligible_target_reached']=result['selected_articles']>=header['profile']['target']
+        result['selection_policy']=header['profile']['selection']
+    return result
 
 
 def checkpoint(store, workspace, durable, header, reason=None):
@@ -306,6 +314,10 @@ def run(bundle,workspace,durable,profile,*,allow_network=False,client_factory=No
                 raise Incompatible('FAST-20K database binding differs')
             store.require_config(context['run_id'],store.run(context['run_id'])['config'])
             cfg=store.run(context['run_id'])['config']
+            selector=None
+            if 'selection' in profile:
+                from .btt import Forest
+                selector=Forest(store,header)
             recover_ambiguous_move_stop(store,context['run_id'])
             fatal=store.db.execute("SELECT value FROM fast_control WHERE key='fatal'").fetchone()
             if fatal:raise Incompatible('FAST-20K previous integrity failure requires review: '+fatal[0])
@@ -328,12 +340,13 @@ def run(bundle,workspace,durable,profile,*,allow_network=False,client_factory=No
                     suggestion['raw_response_reference']=dict(table='fast_qwen',page_id=page,sha256=digest(raw_response))
                     store.db.execute('UPDATE fast_qwen SET status=?,record_json=?,raw_json=? WHERE page_id=?',
                         (suggestion['classification_status'],canonical(suggestion),canonical(raw_response),page));future=None
+                    if selector:selector.refresh(page)
             def start_qwen():
                 nonlocal future
                 if not qwen or future is not None:return
                 pending=store.db.execute("SELECT q.page_id,w.record_json FROM fast_qwen q JOIN fast_work w USING(page_id) WHERE q.status='pending' ORDER BY w.ordinal LIMIT 1").fetchone()
                 if pending:
-                    c=json.loads(store.db.execute('SELECT record_json FROM candidates WHERE run_id=? AND canonical_page_id=?',(context['run_id'],pending[0])).fetchone()[0])
+                    c=(selector.candidate(pending[0]) if selector else json.loads(store.db.execute('SELECT record_json FROM candidates WHERE run_id=? AND canonical_page_id=?',(context['run_id'],pending[0])).fetchone()[0]))
                     future=(pending[0],pool.submit(qwen.classify,json.loads(pending[1]),c.get('expected_strata',[])))
             try:
                 with factory() as client:
@@ -344,27 +357,34 @@ def run(bundle,workspace,durable,profile,*,allow_network=False,client_factory=No
                     provider=HistoricalProvider(store,context['run_id'],client,RawCache(context['raw_cache']),classification_required=False)
                     provider.source.integrity_registry=archive.registry
                     consecutive_failures=0
+                    last_cooldown_checkpoint=None
                     while True:
                         finish_qwen()
                         start_qwen()
                         eligible=store.db.execute('SELECT count(*) FROM fast_work WHERE eligible=1').fetchone()[0]
-                        if eligible>=profile['target']:reason='TARGET_REACHED';break
+                        selected=selector.count() if selector else eligible
+                        if selected>=profile['target']:reason='TARGET_REACHED';break
                         if stop_requested():reason='CHECKPOINT_STOP';break
                         cooldown=store.db.execute("SELECT retry_at FROM api_cooldowns WHERE site='viwiki'").fetchone()
                         if cooldown and cooldown[0]>now():
                             # No request or retry loop during a host cooldown. Pending work is retained.
-                            finish_qwen(True);checkpoint(store,workspace,durable,header,'SOURCE_COOLDOWN')
+                            if cooldown[0]!=last_cooldown_checkpoint:
+                                finish_qwen(True);checkpoint(store,workspace,durable,header,'SOURCE_COOLDOWN')
+                                last_cooldown_checkpoint=cooldown[0]
                             seconds=(datetime.fromisoformat(cooldown[0].replace('Z','+00:00'))-datetime.now(timezone.utc)).total_seconds()
                             time.sleep(min(30,max(0,seconds)))
                             continue
-                        row=store.db.execute("SELECT page_id,tries FROM fast_work WHERE status='pending' ORDER BY ordinal LIMIT 1").fetchone()
-                        if row is None:
+                        row=selector.next(provider,stop_requested) if selector else store.db.execute("SELECT page_id,tries FROM fast_work WHERE status='pending' ORDER BY ordinal LIMIT 1").fetchone()
+                        if row is None and not selector:
                             row=store.db.execute("SELECT page_id,tries FROM fast_work WHERE status='deferred' AND retry_at<=? AND tries<3 ORDER BY ordinal LIMIT 1",(now(),)).fetchone()
                         if row is None:
+                            if selector:
+                                if selector.reason=='SOURCE_COOLDOWN':continue
+                                reason=selector.reason;break
                             deferred=store.db.execute("SELECT min(retry_at) FROM fast_work WHERE status='deferred' AND tries<3").fetchone()[0]
                             reason='SOURCE_COOLDOWN' if deferred else 'CANDIDATE_EXHAUSTED';break
                         page,tries=row
-                        candidate=json.loads(store.db.execute('SELECT record_json FROM candidates WHERE run_id=? AND canonical_page_id=?',(context['run_id'],page)).fetchone()[0])
+                        candidate=(selector.candidate(page) if selector else json.loads(store.db.execute('SELECT record_json FROM candidates WHERE run_id=? AND canonical_page_id=?',(context['run_id'],page)).fetchone()[0]))
                         store.db.execute('UPDATE fast_work SET tries=tries+1 WHERE page_id=?',(page,))
                         try:
                             _checked_acquisition(provider,candidate)
@@ -402,6 +422,7 @@ def run(bundle,workspace,durable,profile,*,allow_network=False,client_factory=No
                                     (int(record['quality']['eligible']),canonical(record),digest(record),page))
                                 if record['quality']['eligible'] and not cls.get('primary_entity_type'):
                                     store.db.execute('INSERT OR IGNORE INTO fast_qwen(page_id) VALUES (?)',(page,))
+                            if selector:selector.refresh(page)
                         except SourceUnavailable as error:
                             kind='ambiguous_move' if ambiguous_move(error) else failure_kind(error)
                             if kind=='integrity_fatal':raise

@@ -35,7 +35,10 @@ def pool_report(workspace,header):
              'raw_cache':str(Path(workspace)/'raw-cache')}
     with FastArchive(context) as archive:
         records=[];rejected=Counter();extractions=Counter()
-        for body,checksum in archive.db.execute("SELECT record_json,record_hash FROM fast_work WHERE status='processed'"):
+        query="SELECT record_json,record_hash FROM fast_work WHERE status='processed'"
+        if 'selection' in header['profile']:
+            query="SELECT w.record_json,w.record_hash FROM fast_work w JOIN btt_members m USING(page_id) WHERE w.status='processed'"
+        for body,checksum in archive.db.execute(query):
             a=json.loads(body)
             if digest(a)!=checksum:raise Incompatible('FAST-20K pool checksum differs')
             extractions[a['extraction']['outcome']]+=1
@@ -45,6 +48,7 @@ def pool_report(workspace,header):
         for a in records:archive.collection_targets.setdefault(normalize_title(a['title']),[]).append(a)
         labeled,_=classify_links(records,archive)
         return dict(eligible_articles=len(records),extraction_states=dict(extractions),
+            scope='selected_forest' if 'selection' in header['profile'] else 'eligible_pool',
             rejection_reasons=dict(rejected),edges=edge_report(labeled),graph=graph_metrics(rankable_links(labeled)),
             classification=dict(Counter(a['classification'].get('primary_entity_type') or 'Unknown' for a in records)),
             graph_is_semantically_verified=False)
@@ -98,7 +102,15 @@ def publish(workspace,output,*,fixture=False):
         if db.execute("SELECT value FROM fast_control WHERE key='binding'").fetchone()[0]!=canonical(header):
             raise Incompatible('FAST-20K publication database binding differs')
         records=[];qwen_rows={row[0]:tuple(row) for row in db.execute('SELECT page_id,status,record_json,raw_json FROM fast_qwen')}
-        for body,checksum in db.execute('SELECT record_json,record_hash FROM fast_work WHERE eligible=1 ORDER BY ordinal'):
+        forest=None
+        query='SELECT record_json,record_hash FROM fast_work WHERE eligible=1 ORDER BY ordinal'
+        if 'selection' in header['profile']:
+            from .btt import validate_forest
+            forest=validate_forest(db,target)
+            forest_decisions=dict(roots=[dict(page_id=p,status=s,entity_group=g) for p,s,g in db.execute('SELECT * FROM btt_roots ORDER BY page_id')],
+                targets=[dict(parent_id=p,title=t,status=s,target_id=q,degree=d,raw_hash=h) for p,t,s,q,d,h in db.execute("SELECT l.parent_id,l.title_key,l.status,l.target_id,p.degree,json_extract(w.record_json,'$.raw_hash') FROM btt_links l LEFT JOIN btt_pool p ON p.page_id=l.target_id LEFT JOIN fast_work w ON w.page_id=l.target_id ORDER BY l.parent_id,l.position")])
+            query='SELECT w.record_json,w.record_hash FROM fast_work w JOIN btt_members m USING(page_id) WHERE w.eligible=1 ORDER BY m.ordinal'
+        for body,checksum in db.execute(query):
             record=json.loads(body)
             if digest(record)!=checksum:raise Incompatible('FAST-20K eligible record checksum differs')
             suggestion=db.execute('SELECT record_json,status FROM fast_qwen WHERE page_id=?',(record['page_id'],)).fetchone()
@@ -132,6 +144,10 @@ def publish(workspace,output,*,fixture=False):
         if selection.shortage or len(set(selection.page_ids))!=target:
             raise Incompatible('FAST-20K exact-target graph-aware selection failed')
         originals={a['page_id']:a for a in records};annotated={a['page_id']:a for a in result['articles']}
+        if forest is not None:
+            expected={(n['parent_id'],n['page_id']) for n in forest if n['parent_id'] is not None}
+            actual={(a['page_id'],l.get('target',{}).get('page_id')) for a in result['articles'] for l in a['extraction']['links'] if l['edge_status'] in ('CANDIDATE_EDGE','VERIFIED_EDGE')}
+            if not expected<=actual:raise Incompatible('BTT selected parent link lacks checked target evidence')
         final=[]
         for page in selection.page_ids:
             record=deepcopy(originals[page]);record['extraction']=annotated[page]['extraction']
@@ -143,6 +159,7 @@ def publish(workspace,output,*,fixture=False):
         version=digest(dict(binding_id=header['binding_id'],selection=asdict(selection),records=final))
         output.parent.mkdir(parents=True,exist_ok=True)
         stage=output.parent/('.fast20k-pending-'+uuid.uuid4().hex);stage.mkdir()
+        if forest is not None:_publish_json(stage/'forest.json',dict(policy=header['profile']['selection'],nodes=forest,decisions=forest_decisions))
         ids=set(selection.page_ids)
         with closing(sqlite3.connect(stage/'corpus.sqlite')) as corpus, corpus:
             corpus.execute('PRAGMA foreign_keys=ON')
@@ -175,6 +192,7 @@ def publish(workspace,output,*,fixture=False):
             corpus.execute('INSERT INTO metadata VALUES (?,?)',('schema','fast20k-annotation-corpus-1'))
             corpus.execute('INSERT INTO metadata VALUES (?,?)',('configuration',canonical(archive.config)))
             corpus.execute('INSERT INTO metadata VALUES (?,?)',('workspace_binding',canonical(header)))
+            if forest is not None:corpus.execute('INSERT INTO metadata VALUES (?,?)',('btt_forest',canonical(forest)))
             if corpus.execute('PRAGMA integrity_check').fetchone()[0]!='ok' or corpus.execute('PRAGMA foreign_key_check').fetchone():
                 raise Incompatible('FAST-20K corpus SQLite validation failed')
         files={}
@@ -193,6 +211,7 @@ def publish(workspace,output,*,fixture=False):
             quota_deviations={g:sum((a['classification'].get('primary_entity_type') or a.get('classification_suggestion',{}).get('suggested_primary_entity_type'))==g for a in final)-n for g,n in archive.config['quotas'].items()},
             qwen_suggestion_states=dict(Counter(a.get('classification_suggestion',{}).get('classification_status','not_required') for a in final)),
             graph=metrics,edge_report=report,files=files,claims_generated=0,labels_generated=0,hops_assigned=0)
+        if forest is not None:manifest.update(selection_policy=header['profile']['selection'],forest_sha256=digest(forest))
         _publish_json(stage/'manifest.json',manifest)
         stage.rename(output)
         return manifest
