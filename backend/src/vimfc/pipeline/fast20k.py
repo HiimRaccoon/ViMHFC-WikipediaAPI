@@ -5,6 +5,7 @@ from copy import deepcopy
 from dataclasses import asdict
 from datetime import datetime, timezone
 import hashlib
+import gzip
 import json
 import math
 import os
@@ -229,13 +230,22 @@ def checkpoint(store, workspace, durable, header, reason=None):
     snapshot.mkdir()
     # SQLite operates only on working storage; NFS receives a closed DELETE-mode file.
     with tempfile.NamedTemporaryFile(dir=workspace,suffix='.sqlite',delete=False) as f:temporary_db=Path(f.name)
+    compressed_db=temporary_db.with_suffix('.sqlite.gz')
+    compressed=bool(header['profile'].get('selection'))
     try:
         with closing(sqlite3.connect(temporary_db)) as backup:
             store.db.backup(backup)
             backup.execute('PRAGMA journal_mode=DELETE')
-        with temporary_db.open('rb') as src,(snapshot/'pipeline.sqlite').open('xb') as dest:
+        with temporary_db.open('rb') as src:db_hash=hashlib.file_digest(src,'sha256').hexdigest()
+        if compressed:
+            with temporary_db.open('rb') as src,gzip.open(compressed_db,'wb',compresslevel=1) as dest:
+                shutil.copyfileobj(src,dest,1024*1024)
+        sealed=compressed_db if compressed else temporary_db
+        filename='pipeline.sqlite.gz' if compressed else 'pipeline.sqlite'
+        with sealed.open('rb') as src,(snapshot/filename).open('xb') as dest:
             shutil.copyfileobj(src,dest,1024*1024);dest.flush();os.fsync(dest.fileno())
-    finally:temporary_db.unlink(missing_ok=True)
+    finally:
+        temporary_db.unlink(missing_ok=True);compressed_db.unlink(missing_ok=True)
     # Copy only missing content-addressed objects. Existing destination bytes must agree.
     target=durable/'raw-cache';target.mkdir(exist_ok=True)
     for file in (workspace/'raw-cache').rglob('*.gz'):
@@ -247,8 +257,8 @@ def checkpoint(store, workspace, durable, header, reason=None):
             temporary=dest.with_suffix('.pending')
             shutil.copyfile(file,temporary);temporary.replace(dest)
     _publish_json(snapshot/'workspace.json',header)
-    with (snapshot/'pipeline.sqlite').open('rb') as f:db_hash=hashlib.file_digest(f,'sha256').hexdigest()
     receipt=dict(directory=snapshot.name,db_sha256=db_hash,binding_id=header['binding_id'],progress=progress(store,header,reason))
+    if compressed:receipt['db_encoding']='gzip'
     try:
         from .fast20k_corpus import pool_report
         report=pool_report(workspace,header)
@@ -270,6 +280,13 @@ def checkpoint(store, workspace, durable, header, reason=None):
     return receipt
 
 
+def checkpoint_reader(snapshot,receipt):
+    encoding=receipt.get('db_encoding','identity')
+    if encoding=='gzip':return gzip.open(snapshot/'pipeline.sqlite.gz','rb')
+    if encoding=='identity':return (snapshot/'pipeline.sqlite').open('rb')
+    raise Incompatible('Unsupported checkpoint database encoding')
+
+
 def restore(bundle,workspace,durable,profile):
     """Restore a complete stopped-writer snapshot into a NEW local directory only."""
     workspace,durable=Path(workspace).resolve(),Path(durable).resolve()
@@ -279,7 +296,7 @@ def restore(bundle,workspace,durable,profile):
     if not name.startswith('checkpoint-') or len(name)!=43 or Path(name).name!=name:
         raise Incompatible('Invalid FAST-20K checkpoint path')
     source=durable/name
-    with (source/'pipeline.sqlite').open('rb') as f:
+    with checkpoint_reader(source,receipt) as f:
         if hashlib.file_digest(f,'sha256').hexdigest()!=receipt['db_sha256']:raise Incompatible('FAST-20K checkpoint checksum differs')
     header=load(source/'workspace.json')
     if header['binding_id']!=receipt['binding_id'] or header['profile']!=profile:
@@ -287,7 +304,8 @@ def restore(bundle,workspace,durable,profile):
     manifest,context,_=read_bundle(bundle)
     if manifest['bundle_id']!=header['bundle_id']:raise Incompatible('FAST-20K restore bundle differs')
     workspace.mkdir(parents=True)
-    shutil.copyfile(source/'pipeline.sqlite',workspace/'pipeline.sqlite')
+    with checkpoint_reader(source,receipt) as src,(workspace/'pipeline.sqlite').open('xb') as dest:
+        shutil.copyfileobj(src,dest,1024*1024)
     shutil.copyfile(source/'workspace.json',workspace/'workspace.json')
     shutil.copyfile(context['database'],workspace/'source-read.sqlite')
     shutil.copyfile(Path(bundle)/'registry.sqlite',workspace/'registry-read.sqlite')

@@ -112,6 +112,11 @@ def test_fork_real_pipeline_fixture_resume_budget_and_publication(tmp_path,confi
     cfg=profile(target=2);cfg['selection']=POLICY
     new=tmp_path/'btt-work';durable=tmp_path/'btt-durable'
     h=prepare(kwargs['bundle'],new,durable,kwargs['durable'],cfg,fixture=True)
+    import gzip,hashlib
+    receipt=load(durable/'latest.json')
+    assert receipt['db_encoding']=='gzip'
+    sealed=durable/receipt['directory']/'pipeline.sqlite.gz'
+    assert hashlib.sha256(gzip.decompress(sealed.read_bytes())).hexdigest()==receipt['db_sha256']
     assert h['context']['run_id']!=load(kwargs['workspace']/'workspace.json')['context']['run_id']
     before=len(calls)
     btt=run(kwargs['bundle'],new,durable,cfg,client_factory=kwargs['client_factory'],fixture=True)
@@ -213,3 +218,18 @@ def test_resume_btt_snapshot_keeps_higher_persistent_charge(tmp_path,config,monk
     assert result['selected_articles']==2 and result['physical_requests']==2
     assert load(new_durable/'http-budget.json')['parent_budget_sha256']==digest(budget)
     assert load(durable/'http-budget.json')==budget
+
+
+def test_compressed_checkpoint_tamper_blocks_restore(tmp_path,config,monkeypatch):
+    import gzip
+    kwargs,_=call(tmp_path,config,monkeypatch,cfg=profile(target=5))
+    flag={'stop':False};kwargs.update(stop_requested=lambda:flag['stop'],on_checkpoint=lambda r:flag.update(stop=True))
+    run(**kwargs)
+    cfg=profile(target=2);cfg['selection']=POLICY
+    durable=tmp_path/'btt-durable'
+    prepare(kwargs['bundle'],tmp_path/'btt-work',durable,kwargs['durable'],cfg,fixture=True)
+    receipt=load(durable/'latest.json')
+    (durable/receipt['directory']/'pipeline.sqlite.gz').write_bytes(gzip.compress(b'wrong bytes'))
+    with pytest.raises(Incompatible,match='checksum'):
+        restore(kwargs['bundle'],tmp_path/'not-restored',durable,cfg)
+    assert not (tmp_path/'not-restored').exists()

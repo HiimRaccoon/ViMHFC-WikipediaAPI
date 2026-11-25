@@ -94,3 +94,11 @@ stopped BTT checkpoint, preserving forest state and the higher persistent reques
 receipt. The failed job spent 70,148 attempts, despite its older progress record
 showing 70,146. Any bounded live repair preflight also counts toward the same
 200,000 lifetime ceiling and is carried into the replacement campaign.
+
+Native preflight exposed NFS `EDQUOT` during fsync, despite filesystem-wide free
+space. New BTT snapshots therefore gzip the closed local SQLite backup before
+upload, while retaining three checkpoint generations. Receipts declare the
+encoding and retain the SHA-256 of the original uncompressed database. Restore
+verifies the decompressed bytes before creating a workspace; old uncompressed
+snapshots remain readable. Source data, request accounting and snapshot policies
+are unchanged. Storage availability remains an execution prerequisite.
