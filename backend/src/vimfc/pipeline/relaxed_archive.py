@@ -226,7 +226,10 @@ class CheckedArchive(Archive):
         if not row: return {'status': 'unresolved', 'reason': 'no_archived_identity_resolution'}
         result = json.loads(row[0])
         if result.get('status') != 'resolved': return {k: v for k, v in result.items() if k != 'content'}
-        if result.get('snapshot') != self.context['snapshot'] or result.get('proof', {}).get('kind') != 'historical_revision_and_move_log':
+        return self._checked_resolution(title,result)
+
+    def _checked_resolution(self,title,result,*,proof_kind='historical_revision_and_move_log'):
+        if result.get('snapshot') != self.context['snapshot'] or result.get('proof', {}).get('kind') != proof_kind:
             raise Incompatible('Graph historical identity proof differs')
         current = title
         for step in result.get('chain', []):

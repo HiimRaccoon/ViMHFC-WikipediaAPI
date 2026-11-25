@@ -12,6 +12,8 @@ from pathlib import Path
 import shutil
 import sqlite3
 import time
+import tempfile
+import traceback
 import uuid
 
 import httpx
@@ -225,9 +227,15 @@ def checkpoint(store, workspace, durable, header, reason=None):
     durable.mkdir(parents=True,exist_ok=True)
     snapshot=durable/('checkpoint-'+uuid.uuid4().hex)
     snapshot.mkdir()
-    with closing(sqlite3.connect(snapshot/'pipeline.sqlite')) as backup:
-        store.db.backup(backup)
-        backup.execute('PRAGMA journal_mode=DELETE')
+    # SQLite operates only on working storage; NFS receives a closed DELETE-mode file.
+    with tempfile.NamedTemporaryFile(dir=workspace,suffix='.sqlite',delete=False) as f:temporary_db=Path(f.name)
+    try:
+        with closing(sqlite3.connect(temporary_db)) as backup:
+            store.db.backup(backup)
+            backup.execute('PRAGMA journal_mode=DELETE')
+        with temporary_db.open('rb') as src,(snapshot/'pipeline.sqlite').open('xb') as dest:
+            shutil.copyfileobj(src,dest,1024*1024);dest.flush();os.fsync(dest.fileno())
+    finally:temporary_db.unlink(missing_ok=True)
     # Copy only missing content-addressed objects. Existing destination bytes must agree.
     target=durable/'raw-cache';target.mkdir(exist_ok=True)
     for file in (workspace/'raw-cache').rglob('*.gz'):
@@ -308,7 +316,7 @@ def run(bundle,workspace,durable,profile,*,allow_network=False,client_factory=No
         _,source,resolver=read_bundle(bundle)
         if header['bundle_id']!=load(Path(bundle)/'bundle.json')['bundle_id']:raise Incompatible('FAST-20K bundle identity differs')
         source={**source,'database':str(workspace/'source-read.sqlite'),'raw_cache':str(workspace/'raw-cache')}
-        reason=None;count=0;future=None;pool=ThreadPoolExecutor(max_workers=1) if qwen else None
+        reason=None;count=0;future=None;primary_error=None;pool=ThreadPoolExecutor(max_workers=1) if qwen else None
         with PipelineStore(context['database']) as store,CheckedArchive(source,workspace/'registry-read.sqlite',artifact_resolver=resolver) as archive:
             if canonical(header)!=store.db.execute("SELECT value FROM fast_control WHERE key='binding'").fetchone()[0]:
                 raise Incompatible('FAST-20K database binding differs')
@@ -452,12 +460,22 @@ def run(bundle,workspace,durable,profile,*,allow_network=False,client_factory=No
             except KeyboardInterrupt:
                 reason='CHECKPOINT_STOP'
             except Exception as error:
+                primary_error=error
                 reason='INTEGRITY_FAILURE' if failure_kind(error)=='integrity_fatal' else 'OPERATIONAL_ERROR'
                 if reason=='INTEGRITY_FAILURE':store.db.execute("INSERT OR REPLACE INTO fast_control VALUES ('fatal',?)",(str(error),))
-                _publish_json(durable/'last-error.json',dict(type=type(error).__name__,message=str(error),stop_reason=reason,at=now()))
+                _publish_json(durable/'last-error.json',dict(type=type(error).__name__,message=str(error),stop_reason=reason,at=now(),traceback=traceback.format_exc()))
             finally:
                 try:finish_qwen(True)
                 finally:
                     if pool:pool.shutdown(wait=True,cancel_futures=True)
-                receipt=checkpoint(store,workspace,durable,header,reason)
+                try:receipt=checkpoint(store,workspace,durable,header,reason)
+                except Exception as checkpoint_error:
+                    if primary_error is not None:
+                        try:
+                            error_path=durable/'last-error.json';failure=load(error_path)
+                            failure['checkpoint_error']=dict(type=type(checkpoint_error).__name__,message=str(checkpoint_error),traceback=traceback.format_exc())
+                            _publish_json(error_path,failure)
+                        except Exception:pass
+                        raise primary_error from checkpoint_error
+                    raise
             return receipt['progress']

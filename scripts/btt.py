@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import sys
+import traceback
 
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 from fast20k import environment,install_signals,model_service
@@ -47,5 +48,5 @@ def main():
 if __name__=='__main__':
     try:sys.exit(main())
     except Exception as e:
-        print(json.dumps(dict(status='FAILED',error_type=type(e).__name__,error=str(e),corpus_complete=False)),file=sys.stderr)
+        print(json.dumps(dict(status='FAILED',error_type=type(e).__name__,error=str(e),corpus_complete=False,traceback=traceback.format_exc())),file=sys.stderr)
         sys.exit(3)

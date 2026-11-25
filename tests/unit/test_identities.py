@@ -23,3 +23,11 @@ def test_redirect_depth_is_bounded():
         i = int(title)
         return [{'page_id':i+1,'title':title,'revision_id':i+10,'content':f'#REDIRECT [[{i+1}]]'}]
     assert resolve_historical('0',lookup)['reason'] == 'redirect_depth'
+
+
+def test_hidden_matching_move_never_invents_historical_title():
+    import pytest
+    from vimfc.domain import SourceUnavailable
+    with pytest.raises(SourceUnavailable) as error:
+        title_at_snapshot(1,'New',[dict(pageid=1,actionhidden=True,timestamp='2026-10-26T00:00:00Z')],'2026-10-25T00:00:00Z')
+    assert error.value.code=='move_log_title_hidden'

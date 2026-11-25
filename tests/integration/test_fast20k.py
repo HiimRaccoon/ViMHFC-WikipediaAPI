@@ -74,6 +74,37 @@ def test_changed_config_is_refused(tmp_path,config,monkeypatch):
     with pytest.raises(Incompatible,match='binding'):run(**kwargs)
 
 
+def test_checkpoint_never_opens_sqlite_for_writing_on_persistent_storage(tmp_path,config,monkeypatch):
+    kwargs,_=call(tmp_path,config,monkeypatch)
+    original=sqlite3.connect
+    def connect(database,*args,**options):
+        assert not str(database).startswith(str(kwargs['durable'])),'SQLite backup opened on persistent storage'
+        return original(database,*args,**options)
+    monkeypatch.setattr(sqlite3,'connect',connect)
+    assert run(**kwargs)['stop_reason']=='TARGET_REACHED'
+    receipt=load(kwargs['durable']/'latest.json')
+    with closing(original(kwargs['durable']/receipt['directory']/'pipeline.sqlite')) as db:
+        assert db.execute('PRAGMA journal_mode').fetchone()[0]=='delete'
+
+
+def test_checkpoint_error_does_not_mask_original_failure(tmp_path,config,monkeypatch):
+    import vimfc.pipeline.fast20k as campaign
+    kwargs,_=call(tmp_path,config,monkeypatch,cfg=profile(target=5))
+    acquire=campaign._checked_acquisition;backup=campaign.checkpoint
+    def broken(provider,candidate):
+        if candidate['page_id']==4:raise KeyError('title')
+        return acquire(provider,candidate)
+    def checkpoint(store,workspace,durable,header,reason=None):
+        if reason=='INTEGRITY_FAILURE':raise sqlite3.OperationalError('disk I/O error')
+        return backup(store,workspace,durable,header,reason)
+    monkeypatch.setattr(campaign,'_checked_acquisition',broken)
+    monkeypatch.setattr(campaign,'checkpoint',checkpoint)
+    with pytest.raises(KeyError,match='title'):run(**kwargs)
+    error=load(kwargs['durable']/'last-error.json')
+    assert error['type']=='KeyError' and error['checkpoint_error']['message']=='disk I/O error'
+    assert 'traceback' in error and 'traceback' in error['checkpoint_error']
+
+
 def move_failure_factory(calls):
     import httpx
     from vimfc.domain import SourceUnavailable

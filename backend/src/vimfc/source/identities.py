@@ -15,6 +15,8 @@ def title_at_snapshot(page_id, current_title, moves, snapshot):
     title = normalize_title(current_title)
     for event in sorted(moves,key=lambda e:e['timestamp'],reverse=True):
         if not at_or_before(event['timestamp'],snapshot) and event.get('pageid',event.get('logpage')) == page_id:
+            if not isinstance(event.get('title'),str):
+                raise SourceUnavailable('Historical move title is unavailable',code='move_log_title_hidden')
             if normalize_title(event.get('params',{}).get('target_title','')) != title:
                 raise SourceUnavailable('Ambiguous historical move chain')
             title = normalize_title(event['title'])
@@ -93,6 +95,14 @@ class HistoricalIdentities:
                 raise
             horizon=self.source.client.query('viwiki',{'action':'query','curtimestamp':1}).get('curtimestamp')
         moves = self._move_index(horizon)
+        hidden=[m for m in moves if not isinstance(m.get('title'),str)]
+        if hidden:
+            if any(not (m.get('actionhidden') or m.get('titlehidden')) for m in hidden):
+                raise SourceUnavailable('Historical move record lacks title',code='source_integrity_move_log')
+            result=dict(status='unresolved',reason='move_log_title_hidden',snapshot=self.snapshot,
+                proof=dict(kind='incomplete_move_log',move_index_hash=digest(moves),hidden_log_ids=[m.get('logid') for m in hidden]))
+            db.execute('INSERT OR IGNORE INTO identity_resolutions VALUES (?,?,?)',(self.snapshot,title,canonical(result)))
+            return result
         def lookup(name):
             hints = set()
             try:

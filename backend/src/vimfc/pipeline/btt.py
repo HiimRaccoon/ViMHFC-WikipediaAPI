@@ -10,6 +10,7 @@ import sqlite3
 
 from vimfc.domain import GROUPS,Incompatible,SourceUnavailable,canonical,digest,now
 from vimfc.source.identities import normalize_title
+from vimfc.source.identities import resolve_historical
 from vimfc.storage.pipeline_store import PipelineStore
 from .fast20k import load,restore,checkpoint,ambiguous_move
 from .incremental_collection import failure_kind,_publish_json
@@ -17,11 +18,52 @@ from vimfc.source.dump_download import exclusive
 
 POLICY=dict(version='btt-forest-1',max_depth=3,max_children=2,probe_limit=8,
             score='distinct-retained-first-paragraph-targets',roots='soft-quota-degree-1')
+CANDIDATE_PROOF='btt-revision-title-candidate-1'
+
+
+def visible_candidate(provider,title):
+    """Checked page-ID revisions/redirects, explicitly without unique title ownership proof."""
+    snapshot=provider.run['snapshot'];indexes=[]
+    def lookup(name):
+        if ':' in name:raise SourceUnavailable('Candidate namespace needs review',code='namespace_review_required')
+        ref=provider.source.select_title_revision('viwiki',name,snapshot)
+        raw=provider.identities.raw_page(ref.page_id)
+        if raw.ref.page_id!=ref.page_id:raise Incompatible('BTT candidate page identity mismatch')
+        if normalize_title(raw.ref.title)!=normalize_title(name):return []
+        if raw.content_model!='wikitext':return []
+        indexes.append(provider.identities._move_index(ref.lookup_timestamp))
+        return [dict(page_id=ref.page_id,title=raw.ref.title,revision_id=raw.ref.revision_id,
+            revision_timestamp=raw.ref.revision_timestamp,raw_hash=raw.local_sha256,content=raw.content)]
+    result=resolve_historical(title,lookup)
+    result['snapshot']=snapshot
+    if result.get('status')=='resolved':
+        result['proof']=dict(kind=CANDIDATE_PROOF,move_index_hash=digest(indexes[0]),ownership_verified=False,
+            reason='move_log_title_hidden',hidden_log_ids=sorted({m['logid'] for index in indexes for m in index if type(m.get('logid')) is int and (m.get('actionhidden') or m.get('titlehidden'))}))
+    return result
 
 
 def titles(article):
     return sorted({normalize_title(l['target_title']) for l in article['extraction']['links']
         if l['scope']=='retained_lead_prose' and l.get('target_title')})
+
+
+def seal_fork(store,workspace,durable,old,header,source_budget):
+    header.pop('binding_id',None);header['binding_id']=digest(header)
+    local=int(store.db.execute("SELECT value FROM fast_control WHERE key='attempts'").fetchone()[0])
+    spent=max(local,source_budget['attempts'] if source_budget else 0)
+    last=float(store.db.execute("SELECT value FROM fast_control WHERE key='last_request'").fetchone()[0])
+    if source_budget:last=max(last,source_budget['last_request'])
+    with store.transaction():
+        store.db.execute("UPDATE fast_control SET value=? WHERE key='binding'",(canonical(header),))
+        store.db.execute("UPDATE fast_control SET value=? WHERE key='attempts'",(str(spent),))
+        store.db.execute("UPDATE fast_control SET value=? WHERE key='last_request'",(str(last),))
+    durable.mkdir(parents=True)
+    receipt={**(source_budget or {}),'binding':digest(header),'attempts':spent,'last_request':last,
+             'parent_budget_sha256':digest(source_budget),'parent_binding':old['binding_id']}
+    _publish_json(durable/'http-budget.json',receipt)
+    _publish_json(workspace/'workspace.json',header)
+    checkpoint(store,workspace,durable,header,'CHECKPOINT_STOP')
+    return header
 
 
 def prepare(bundle,workspace,durable,source,profile,*,fixture=False):
@@ -34,7 +76,8 @@ def prepare(bundle,workspace,durable,source,profile,*,fixture=False):
     parent=load(source/'latest.json');old=load(source/parent['directory']/'workspace.json')
     if old['binding_id']!=digest({k:v for k,v in old.items() if k!='binding_id'}) or parent['binding_id']!=old['binding_id']:
         raise Incompatible('BTT source header binding differs')
-    if old.get('fixture')!=fixture or old['profile'].get('selection'):
+    resuming=bool(old['profile'].get('selection'))
+    if old.get('fixture')!=fixture or resuming and old['profile']!=profile:
         raise Incompatible('BTT import requires a compatible stopped seed campaign')
     if parent['progress']['stop_reason']!='CHECKPOINT_STOP':raise Incompatible('Source campaign must be checkpoint-stopped')
     source_budget=load(source/'http-budget.json') if (source/'http-budget.json').exists() else None
@@ -45,6 +88,10 @@ def prepare(bundle,workspace,durable,source,profile,*,fixture=False):
             raise Incompatible('BTT source database/header binding differs')
         previous=old['context']['run_id'];cfg=deepcopy(store.run(previous)['config'])
         if store.db.execute("SELECT 1 FROM fast_control WHERE key='fatal'").fetchone():raise Incompatible('Source fatal must be reviewed')
+        if resuming:
+            Forest(store,old)  # Additive candidate-proof table for earlier BTT snapshots.
+            header={**old,'resumed_checkpoint':dict(binding_id=old['binding_id'],db_sha256=parent['db_sha256'])}
+            return seal_fork(store,workspace,durable,old,header,source_budget)
         cfg.update(version='btt-collection-1',fast20k=profile)
         run=store.create(old['context']['snapshot'],cfg,reuse_run=previous)
         with store.transaction():
@@ -61,24 +108,11 @@ def prepare(bundle,workspace,durable,source,profile,*,fixture=False):
                 store.db.execute('UPDATE fast_work SET record_json=?,record_hash=? WHERE page_id=?',(canonical(a),digest(a),page))
             header={**old,'profile':profile,'context':{**old['context'],'run_id':run,'config_hash':digest(cfg)},
                 'parent_checkpoint':dict(binding_id=old['binding_id'],db_sha256=parent['db_sha256'],run_id=previous)}
-            header.pop('binding_id');header['binding_id']=digest(header)
-            store.db.execute("UPDATE fast_control SET value=? WHERE key='binding'",(canonical(header),))
-            local=int(store.db.execute("SELECT value FROM fast_control WHERE key='attempts'").fetchone()[0])
-            spent=max(local,source_budget['attempts'] if source_budget else 0)
-            store.db.execute("UPDATE fast_control SET value=? WHERE key='attempts'",(str(spent),))
         Forest.create(store)
         forest=Forest(store,header)
         with store.transaction():
             for page, in store.db.execute('SELECT page_id FROM fast_work WHERE eligible=1').fetchall():forest.refresh(page)
-        durable.mkdir(parents=True)
-        receipt={**(source_budget or {}),'binding':digest(header),'attempts':spent,
-                 'last_request':float(store.db.execute("SELECT value FROM fast_control WHERE key='last_request'").fetchone()[0]),
-                 'parent_budget_sha256':digest(source_budget),'parent_binding':old['binding_id']}
-        if source_budget:receipt['last_request']=max(receipt['last_request'],source_budget['last_request'])
-        _publish_json(durable/'http-budget.json',receipt)
-        _publish_json(workspace/'workspace.json',header)
-        checkpoint(store,workspace,durable,header,'CHECKPOINT_STOP')
-    return header
+        return seal_fork(store,workspace,durable,old,header,source_budget)
 
 
 class Forest:
@@ -100,6 +134,7 @@ class Forest:
     def __init__(self,store,header):
         self.store,self.db,self.header=store,store.db,header
         self.profile=header['profile'];self.run=header['context']['run_id'];self.reason='CANDIDATE_EXHAUSTED'
+        self.db.execute('CREATE TABLE IF NOT EXISTS btt_title_proofs(title_key TEXT PRIMARY KEY,record_json TEXT NOT NULL)')
 
     def count(self):return self.db.execute('SELECT count(*) FROM btt_members').fetchone()[0]
 
@@ -165,7 +200,10 @@ class Forest:
             archived=self.db.execute('SELECT record_json FROM identity_resolutions WHERE snapshot=? AND lookup_title=?',(self.header['context'].get('snapshot','2026-10-25T03:00:00Z'),title)).fetchone()
             if known and archived:
                 decision=json.loads(archived[0])
-                if decision.get('status')!='resolved' or len(known)!=1 or decision.get('page_id')!=known[0][0]:continue
+                if decision.get('status')!='resolved':
+                    if decision.get('reason')=='move_log_title_hidden':choices.append((1,0,title,None))
+                    continue
+                if len(known)!=1 or decision.get('page_id')!=known[0][0]:continue
             available=[r for r in known if r[0]!=page and not self.db.execute('SELECT 1 FROM btt_members WHERE page_id=?',(r[0],)).fetchone()]
             if len(known)==1 and available:choices.append((0,-known[0][1],title,known[0][0]))
             elif not known:choices.append((1,0,title,None))
@@ -206,6 +244,10 @@ class Forest:
                         else:
                             try:
                                 resolved=provider.identities.resolve(title)
+                                if resolved.get('reason')=='move_log_title_hidden':
+                                    resolved=visible_candidate(provider,title)
+                                    if resolved.get('status')=='resolved':
+                                        self.db.execute('INSERT OR REPLACE INTO btt_title_proofs VALUES (?,?)',(title,canonical(resolved)))
                                 target=resolved.get('page_id') if resolved.get('status')=='resolved' else None
                                 lookup=('resolved' if target else 'unavailable',target,canonical(resolved.get('reason')))
                             except SourceUnavailable as error:

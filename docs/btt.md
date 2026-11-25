@@ -40,7 +40,7 @@ records under a new run, with original record hashes retained. It copies private
 working data, keeps the parent snapshot read-only, and imports the maximum of
 checkpoint and persistent spending. Its new bound budget receipt records the parent
 binding and receipt hash. The 200,000 cumulative physical-attempt ceiling includes
-the prior 70,146 attempts; there is no new free request allowance. Every simulated
+the prior spending; there is no new free request allowance. Every simulated
 or actual attempt, including title lookup, revision/content, continuation and retry,
 still passes CampaignTransport. Cache hits do not charge. Redirects/proxy environment
 are disabled, viwiki/maxlag=5 pinned, serial pacing >=1 second retained.
@@ -77,3 +77,20 @@ stop; do not wait for corpus completion or silently submit a replacement.
 The target remains conditional on yield, finite remaining budget and walltime.
 Candidate exhaustion, budget exhaustion, source problems or interruption produce
 an explicit partial checkpoint, never a falsely complete corpus.
+
+Repair after job 151174: suppressed move-log events have no `title`. The shared
+historical resolver records an unresolved ownership proof instead of raising
+`KeyError`. Malformed non-suppressed records still fail closed. BTT alone may
+retain a provisional link candidate after typed historical revision lookup,
+canonical-title, raw-source and redirect-chain checks. Its separate
+`btt-revision-title-candidate-1` proof explicitly says `ownership_verified=false`;
+the strict identity cache remains unresolved and these links are never gold.
+
+SQLite backups and publication databases are now created and closed on the
+node-local workspace. Only closed files are copied to persistent storage; no
+SQLite write connection is opened on NFS. Checkpoint failures retain the original
+error and both tracebacks. A new BTT workspace may fork an exactly compatible,
+stopped BTT checkpoint, preserving forest state and the higher persistent request
+receipt. The failed job spent 70,148 attempts, despite its older progress record
+showing 70,146. Any bounded live repair preflight also counts toward the same
+200,000 lifetime ceiling and is carried into the replacement campaign.

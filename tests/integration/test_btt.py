@@ -118,6 +118,11 @@ def test_fork_real_pipeline_fixture_resume_budget_and_publication(tmp_path,confi
     assert btt['stop_reason']=='TARGET_REACHED' and btt['selected_articles']==2
     assert btt['eligible_articles']==3
     assert btt['physical_requests']>=7 and load(kwargs['durable']/'http-budget.json')['attempts']==7
+    original_connect=sqlite3.connect
+    def local_sqlite(path,*args,**kw):
+        assert not str(path).startswith(str(tmp_path/'.fast20k-pending-'))
+        return original_connect(path,*args,**kw)
+    monkeypatch.setattr(sqlite3,'connect',local_sqlite)
     package=publish(new,tmp_path/'btt-corpus',fixture=True)
     assert package['selection_policy']==POLICY and package['articles']==2
     with closing(sqlite3.connect(new/'pipeline.sqlite')) as db:validate_forest(db,2)
@@ -149,8 +154,8 @@ def test_forest_rejects_missing_parent_source_link(tmp_path,config):
         with pytest.raises(Incompatible,match='provenance'):validate_forest(store.db,3)
 
 
-@pytest.mark.parametrize('request_limit,expected',[(30,'TARGET_REACHED'),(8,'REQUEST_BUDGET_EXHAUSTED')])
-def test_new_hyperlink_identity_outside_root_inventory_is_accounted(tmp_path,config,monkeypatch,request_limit,expected):
+@pytest.mark.parametrize('request_limit,expected,hidden',[(30,'TARGET_REACHED',False),(8,'REQUEST_BUDGET_EXHAUSTED',False),(60,'TARGET_REACHED',True)])
+def test_new_hyperlink_identity_outside_root_inventory_is_accounted(tmp_path,config,monkeypatch,request_limit,expected,hidden):
     import hashlib,httpx
     kwargs,calls=call(tmp_path,config,monkeypatch,cfg=profile(target=5))
     stop={'yes':False}
@@ -164,11 +169,14 @@ def test_new_hyperlink_identity_outside_root_inventory_is_accounted(tmp_path,con
         client=kwargs['client_factory']();original=client.client._transport.handler
         def handler(req):
             params=req.url.params
+            if params.get('list')=='logevents':
+                calls.append(dict(params))
+                return httpx.Response(200,json=dict(query=dict(logevents=[dict(actionhidden=True,logid=501,timestamp='2026-10-26T12:00:00Z')])))
             if params.get('titles') or params.get('pageids')=='6' or params.get('revids')=='106':
                 calls.append(dict(params))
                 text="Article4 l\u00e0 m\u1ed9t th\u00e0nh ph\u1ed1 th\u00e0nh l\u1eadp n\u0103m 1900 t\u1ea1i [[A]]."
                 revision=dict(revid=106,timestamp='2026-10-25T03:00:00Z',sha1=hashlib.sha1(text.encode()).hexdigest(),slots=dict(main=dict(content=text,contentmodel='wikitext')))
-                return httpx.Response(200,json=dict(curtimestamp='2026-10-26T03:00:00Z',query=dict(pages=[dict(pageid=6,title='Article 4',ns=0,revisions=[revision])])))
+                return httpx.Response(200,json=dict(curtimestamp='2026-10-27T03:00:00Z' if hidden else '2026-10-26T03:00:00Z',query=dict(pages=[dict(pageid=6,title='Article 4',ns=0,revisions=[revision])])))
             return original(req)
         client.client._transport=httpx.MockTransport(handler);return client
     result=run(kwargs['bundle'],work,durable,cfg,client_factory=make,fixture=True)
@@ -178,8 +186,30 @@ def test_new_hyperlink_identity_outside_root_inventory_is_accounted(tmp_path,con
         with closing(sqlite3.connect(work/'pipeline.sqlite')) as db:
             assert db.execute('SELECT 1 FROM btt_members WHERE page_id=6').fetchone()
             assert not db.execute('SELECT 1 FROM candidates WHERE canonical_page_id=6').fetchone()
+            if hidden:
+                strict=json.loads(db.execute("SELECT record_json FROM identity_resolutions WHERE lookup_title='Article 4'").fetchone()[0])
+                assert strict['status']=='unresolved' and strict['reason']=='move_log_title_hidden'
+                candidate=json.loads(db.execute("SELECT record_json FROM btt_title_proofs WHERE title_key='Article 4'").fetchone()[0])
+                assert candidate['proof']['ownership_verified'] is False
         publish(work,tmp_path/'outside-corpus',fixture=True)
     else:
         assert len(calls)==1
         again=run(kwargs['bundle'],work,durable,cfg,client_factory=make,fixture=True)
         assert again['stop_reason']==expected and len(calls)==1
+
+
+def test_resume_btt_snapshot_keeps_higher_persistent_charge(tmp_path,config,monkeypatch):
+    kwargs,_=call(tmp_path,config,monkeypatch,cfg=profile(target=5))
+    stop={'yes':False};kwargs.update(stop_requested=lambda:stop['yes'],on_checkpoint=lambda r:stop.update(yes=True))
+    run(**kwargs)
+    cfg=profile(target=2);cfg['selection']=POLICY
+    work=tmp_path/'first';durable=tmp_path/'first-durable'
+    prepare(kwargs['bundle'],work,durable,kwargs['durable'],cfg,fixture=True)
+    budget=load(durable/'http-budget.json');budget['attempts']=2
+    (durable/'http-budget.json').write_text(canonical(budget))
+    new=tmp_path/'second';new_durable=tmp_path/'second-durable'
+    prepare(kwargs['bundle'],new,new_durable,durable,cfg,fixture=True)
+    result=run(kwargs['bundle'],new,new_durable,cfg,client_factory=kwargs['client_factory'],fixture=True)
+    assert result['selected_articles']==2 and result['physical_requests']==2
+    assert load(new_durable/'http-budget.json')['parent_budget_sha256']==digest(budget)
+    assert load(durable/'http-budget.json')==budget

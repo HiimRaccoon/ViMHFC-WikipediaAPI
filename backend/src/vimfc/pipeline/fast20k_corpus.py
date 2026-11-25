@@ -7,6 +7,8 @@ import hashlib
 import json
 from pathlib import Path
 import sqlite3
+import shutil
+import os
 import unicodedata
 import uuid
 
@@ -26,6 +28,11 @@ from .discovery_policy import SNAPSHOT
 class FastArchive(CollectionArchive):
     def resolve(self,title):
         target=super().resolve(title)
+        if (self.config.get('fast20k',{}).get('selection') and target.get('reason')=='move_log_title_hidden'):
+            from .btt import CANDIDATE_PROOF
+            row=self.db.execute('SELECT record_json FROM btt_title_proofs WHERE title_key=?',(normalize_title(title),)).fetchone()
+            if row:
+                target=self._checked_resolution(normalize_title(title),json.loads(row[0]),proof_kind=CANDIDATE_PROOF)
         # Target raw was checked by the archive; do not duplicate whole revisions per link.
         return {k:v for k,v in target.items() if k!='content'}
 
@@ -158,7 +165,7 @@ def publish(workspace,output,*,fixture=False):
         metrics=graph_metrics(rankable_links(final));report=edge_report(final)
         version=digest(dict(binding_id=header['binding_id'],selection=asdict(selection),records=final))
         output.parent.mkdir(parents=True,exist_ok=True)
-        stage=output.parent/('.fast20k-pending-'+uuid.uuid4().hex);stage.mkdir()
+        stage=workspace/('.fast20k-publication-'+uuid.uuid4().hex);stage.mkdir()
         if forest is not None:_publish_json(stage/'forest.json',dict(policy=header['profile']['selection'],nodes=forest,decisions=forest_decisions))
         ids=set(selection.page_ids)
         with closing(sqlite3.connect(stage/'corpus.sqlite')) as corpus, corpus:
@@ -213,5 +220,10 @@ def publish(workspace,output,*,fixture=False):
             graph=metrics,edge_report=report,files=files,claims_generated=0,labels_generated=0,hops_assigned=0)
         if forest is not None:manifest.update(selection_policy=header['profile']['selection'],forest_sha256=digest(forest))
         _publish_json(stage/'manifest.json',manifest)
-        stage.rename(output)
+        pending=output.parent/('.fast20k-pending-'+uuid.uuid4().hex);pending.mkdir()
+        for path in stage.iterdir():
+            with path.open('rb') as src,(pending/path.name).open('xb') as dest:
+                shutil.copyfileobj(src,dest,1024*1024);dest.flush();os.fsync(dest.fileno())
+        if output.exists():raise Incompatible('Publication destination appeared during copy')
+        pending.rename(output)
         return manifest
