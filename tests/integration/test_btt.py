@@ -233,3 +233,40 @@ def test_compressed_checkpoint_tamper_blocks_restore(tmp_path,config,monkeypatch
     with pytest.raises(Incompatible,match='checksum'):
         restore(kwargs['bundle'],tmp_path/'not-restored',durable,cfg)
     assert not (tmp_path/'not-restored').exists()
+
+
+@pytest.mark.parametrize('change,authorization,accepted',[
+    ({'request_limit':40},None,False),
+    ({'request_limit':10},10,False),
+    ({'request_limit':40,'target':3},40,False),
+    ({'request_limit':40},40,True),
+])
+def test_explicit_budget_extension_preserves_forest_and_spending(tmp_path,config,monkeypatch,change,authorization,accepted):
+    kwargs,_=call(tmp_path,config,monkeypatch,cfg=profile(target=5))
+    flag={'stop':False};kwargs.update(stop_requested=lambda:flag['stop'],on_checkpoint=lambda r:flag.update(stop=True))
+    run(**kwargs)
+    cfg=profile(target=2,limit=20);cfg['selection']=POLICY
+    work=tmp_path/'btt';source=tmp_path/'btt-source'
+    prepare(kwargs['bundle'],work,source,kwargs['durable'],cfg,fixture=True)
+    run(kwargs['bundle'],work,source,cfg,client_factory=kwargs['client_factory'],fixture=True,stop_requested=lambda:True)
+    # A receipt can be ahead of the workspace after a crash; it must not be refunded.
+    receipt=load(source/'http-budget.json');receipt['attempts']=19
+    (source/'http-budget.json').write_text(canonical(receipt))
+    original=(source/'latest.json').read_bytes()
+    proposed={**cfg,**change};new=tmp_path/'extended';durable=tmp_path/'extended-durable'
+    if not accepted:
+        with pytest.raises(Incompatible,match='extension'):
+            prepare(kwargs['bundle'],new,durable,source,proposed,fixture=True,authorized_request_limit=authorization)
+        assert not new.exists() and not durable.exists()
+    else:
+        before=load(work/'workspace.json')
+        header=prepare(kwargs['bundle'],new,durable,source,proposed,fixture=True,authorized_request_limit=authorization)
+        assert header['context']['run_id']!=before['context']['run_id']
+        assert load(durable/'http-budget.json')['attempts']==19
+        result=run(kwargs['bundle'],new,durable,proposed,client_factory=kwargs['client_factory'],fixture=True)
+        assert result['selected_articles']==2 and result['physical_requests']>=19
+        assert publish(new,tmp_path/'extended-published',fixture=True)['articles']==2
+        with closing(sqlite3.connect(new/'pipeline.sqlite')) as db:
+            assert db.execute('SELECT count(*) FROM pipeline_runs').fetchone()[0]>1
+    assert (source/'latest.json').read_bytes()==original
+    assert load(source/'http-budget.json')==receipt

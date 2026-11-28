@@ -102,3 +102,11 @@ encoding and retain the SHA-256 of the original uncompressed database. Restore
 verifies the decompressed bytes before creating a workspace; old uncompressed
 snapshots remain readable. Source data, request accounting and snapshot policies
 are unchanged. Storage availability remains an execution prerequisite.
+
+An operator-approved lifetime ceiling increase is an explicit fork, not an ordinary
+resume with edited settings. `--authorized-request-limit` must equal the proposed
+profile ceiling, strictly greater than the parent ceiling; every other profile
+field must match. Fork only a checkpoint-stopped parent, keep the parent untouched,
+rebind a new run/config and processed-record hashes, retain forest/scouting/Qwen
+state, and carry the maximum workspace/persistent spending plus receipt lineage.
+The new ceiling is cumulative, never a fresh request allowance.

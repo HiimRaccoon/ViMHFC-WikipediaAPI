@@ -21,6 +21,7 @@ def main():
     for name in ('bundle','source-campaign','workspace','durable','output','logs'):p.add_argument('--'+name,required=True)
     p.add_argument('--profile',default=str(Path(__file__).resolve().parents[1]/'configs/btt.json'))
     p.add_argument('--runtime');p.add_argument('--model');p.add_argument('--allow-network',action='store_true')
+    p.add_argument('--authorized-request-limit',type=int)
     a=p.parse_args();cfg=load(a.profile);stop=install_signals()
     logs=Path(a.logs);logs.mkdir(parents=True,exist_ok=True)
     _publish_json(logs/'environment.json',environment(Path(a.workspace).parent))
@@ -29,7 +30,7 @@ def main():
     # The same outer lock covers initial fork, acquisition, and final publication.
     with exclusive(durable.parent/('.'+durable.name+'-owner.lock')):
         if not (durable/'latest.json').exists():
-            prepare(a.bundle,a.workspace,a.durable,a.source_campaign,cfg)
+            prepare(a.bundle,a.workspace,a.durable,a.source_campaign,cfg,authorized_request_limit=a.authorized_request_limit)
         def execute(qwen):return run(a.bundle,a.workspace,a.durable,cfg,allow_network=a.allow_network,qwen=qwen,stop_requested=stop)
         if a.runtime and a.model:
             with model_service(cfg['qwen'],a.runtime,a.model,logs) as (qwen,status):

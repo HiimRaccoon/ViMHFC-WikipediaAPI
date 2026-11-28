@@ -66,7 +66,7 @@ def seal_fork(store,workspace,durable,old,header,source_budget):
     return header
 
 
-def prepare(bundle,workspace,durable,source,profile,*,fixture=False):
+def prepare(bundle,workspace,durable,source,profile,*,fixture=False,authorized_request_limit=None):
     """Fork a stopped checkpoint. Originals stay read-only; spending is carried upward."""
     from .fast20k import validate_profile
     validate_profile(profile,fixture=fixture)
@@ -77,7 +77,12 @@ def prepare(bundle,workspace,durable,source,profile,*,fixture=False):
     if old['binding_id']!=digest({k:v for k,v in old.items() if k!='binding_id'}) or parent['binding_id']!=old['binding_id']:
         raise Incompatible('BTT source header binding differs')
     resuming=bool(old['profile'].get('selection'))
-    if old.get('fixture')!=fixture or resuming and old['profile']!=profile:
+    extending=resuming and old['profile']!=profile
+    if extending and (authorized_request_limit!=profile['request_limit'] or
+            profile['request_limit']<=old['profile']['request_limit'] or
+            {**profile,'request_limit':old['profile']['request_limit']}!=old['profile']):
+        raise Incompatible('BTT budget extension requires explicit ceiling and otherwise identical profile')
+    if old.get('fixture')!=fixture:
         raise Incompatible('BTT import requires a compatible stopped seed campaign')
     if parent['progress']['stop_reason']!='CHECKPOINT_STOP':raise Incompatible('Source campaign must be checkpoint-stopped')
     source_budget=load(source/'http-budget.json') if (source/'http-budget.json').exists() else None
@@ -88,7 +93,7 @@ def prepare(bundle,workspace,durable,source,profile,*,fixture=False):
             raise Incompatible('BTT source database/header binding differs')
         previous=old['context']['run_id'];cfg=deepcopy(store.run(previous)['config'])
         if store.db.execute("SELECT 1 FROM fast_control WHERE key='fatal'").fetchone():raise Incompatible('Source fatal must be reviewed')
-        if resuming:
+        if resuming and not extending:
             Forest(store,old)  # Additive candidate-proof table for earlier BTT snapshots.
             header={**old,'resumed_checkpoint':dict(binding_id=old['binding_id'],db_sha256=parent['db_sha256'])}
             return seal_fork(store,workspace,durable,old,header,source_budget)
@@ -100,7 +105,7 @@ def prepare(bundle,workspace,durable,source,profile,*,fixture=False):
                 if digest(value)!=row[4]:raise Incompatible('BTT source stage checksum differs')
                 store.complete(run,row[0],row[1],row[2],value)
             # The 100k frozen list is a root reservoir, not 100k already admitted work items.
-            store.db.execute("DELETE FROM fast_work WHERE status='pending' AND tries=0")
+            if not resuming:store.db.execute("DELETE FROM fast_work WHERE status='pending' AND tries=0")
             for page,body,checksum in store.db.execute('SELECT page_id,record_json,record_hash FROM fast_work WHERE record_json IS NOT NULL').fetchall():
                 a=json.loads(body)
                 if digest(a)!=checksum:raise Incompatible('BTT imported record checksum differs')
@@ -108,7 +113,7 @@ def prepare(bundle,workspace,durable,source,profile,*,fixture=False):
                 store.db.execute('UPDATE fast_work SET record_json=?,record_hash=? WHERE page_id=?',(canonical(a),digest(a),page))
             header={**old,'profile':profile,'context':{**old['context'],'run_id':run,'config_hash':digest(cfg)},
                 'parent_checkpoint':dict(binding_id=old['binding_id'],db_sha256=parent['db_sha256'],run_id=previous)}
-        Forest.create(store)
+        if not resuming:Forest.create(store)
         forest=Forest(store,header)
         with store.transaction():
             for page, in store.db.execute('SELECT page_id FROM fast_work WHERE eligible=1').fetchall():forest.refresh(page)
